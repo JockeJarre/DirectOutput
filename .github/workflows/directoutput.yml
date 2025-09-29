@@ -13,6 +13,9 @@ jobs:
   build:
     name: Build DirectOutput-${{ matrix.config }}-win-${{ matrix.platform }}
     runs-on: windows-2022
+    outputs:
+      version-tag: ${{ steps.version.outputs.tag }}
+      base-version: ${{ steps.version.outputs.base_version }}
     strategy:
       fail-fast: false
       matrix:
@@ -111,22 +114,36 @@ jobs:
       - name: Update Assembly Version
         id: version
         run: |
+          # Extract base version from SharedAssemblyInfo.cs
+          $sharedAssemblyInfo = "AssemblyInfo/SharedAssemblyInfo.cs"
+          $content = Get-Content $sharedAssemblyInfo -Raw
+          
+          # Extract version using regex - looking for [assembly: AssemblyVersion("x.y.*")]
+          if ($content -match '\[assembly:\s*AssemblyVersion\("([0-9]+\.[0-9]+)\.\*"\)\]') {
+            $BASE_VERSION = $matches[1]
+            Write-Host "Extracted base version from AssemblyInfo: $BASE_VERSION"
+          } else {
+            Write-Error "Could not extract base version from AssemblyInfo file"
+            exit 1
+          }
+          
           $SHA7 = "${{ github.sha }}".Substring(0, 7)
-          $VERSION_SHORT = "3.2.${{ github.run_number }}.0"
-          $VERSION_LONG = "3.2.${{ github.run_number }}.0-$SHA7"
+          $VERSION_SHORT = "$BASE_VERSION.${{ github.run_number }}.0"
+          $VERSION_LONG = "$BASE_VERSION.${{ github.run_number }}.0-$SHA7"
           
           Write-Host "VERSION_SHORT: $VERSION_SHORT"
           Write-Host "VERSION_LONG: $VERSION_LONG"
           
-          # Update SharedAssemblyInfo.cs
-          $sharedAssemblyInfo = "AssemblyInfo/SharedAssemblyInfo.cs"
-          $content = Get-Content $sharedAssemblyInfo -Raw
-          $content = $content -replace '\[assembly: AssemblyVersion\("3\.2\.\*"\)\]', "[assembly: AssemblyVersion(`"$VERSION_SHORT`")]"
+          # Update SharedAssemblyInfo.cs - use the extracted base version in the regex
+          $versionPattern = [regex]::Escape("[assembly: AssemblyVersion(`"$BASE_VERSION.*`")]")
+          $replacement = "[assembly: AssemblyVersion(`"$VERSION_SHORT`")]"
+          $content = $content -replace "\[assembly:\s*AssemblyVersion\(`"$([regex]::Escape($BASE_VERSION))\.\*`"\)\]", $replacement
           $content = $content + "`n[assembly: AssemblyFileVersion(`"$VERSION_SHORT`")]`n[assembly: AssemblyInformationalVersion(`"$VERSION_LONG`")]"
           Set-Content $sharedAssemblyInfo $content
           
           echo "tag=$VERSION_LONG" >> $env:GITHUB_OUTPUT
           echo "short_version=$VERSION_SHORT" >> $env:GITHUB_OUTPUT
+          echo "base_version=$BASE_VERSION" >> $env:GITHUB_OUTPUT
 
       - name: Fix NuGet package references
         run: |
@@ -363,9 +380,12 @@ jobs:
 
       - name: Prepare release files
         run: |
-          $SHA7 = "${{ github.sha }}".Substring(0, 7)
-          $VERSION_LONG = "3.2.${{ github.run_number }}.0-$SHA7"
+          # Use version information from build job outputs
+          $VERSION_LONG = "${{ needs.build.outputs.version-tag }}"
+          $BASE_VERSION = "${{ needs.build.outputs.base-version }}"
           $DATE = Get-Date -Format "yyyyMMdd"
+          
+          Write-Host "Using version from build job: $VERSION_LONG (base: $BASE_VERSION)"
           
           # Create release directory
           New-Item -ItemType Directory -Path "release" -Force
