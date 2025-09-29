@@ -337,7 +337,7 @@ jobs:
       - name: Upload ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOutput-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}
+          name: DirectOutput-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}.zip
           path: output-zip-${{ matrix.platform }}-${{ matrix.config }}
           if-no-files-found: warn
 
@@ -345,90 +345,59 @@ jobs:
         if: matrix.config == 'Release' && matrix.platform == 'x86'
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOutput-MSI-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}
+          name: DirectOutput-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}.msi
           path: output-msi-${{ matrix.platform }}-${{ matrix.config }}
           if-no-files-found: error
 
-  create-release:
-    name: Create Release Packages
+  create-github-release:
+    name: Create GitHub Release
     runs-on: windows-2022
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && startsWith(github.ref, 'refs/tags/')
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create release packages
+      - name: Prepare release files
         run: |
           $SHA7 = "${{ github.sha }}".Substring(0, 7)
           $VERSION_LONG = "3.2.${{ github.run_number }}.0-$SHA7"
           $DATE = Get-Date -Format "yyyyMMdd"
           
-          # Create release directories
-          New-Item -ItemType Directory -Path "release\zip" -Force
-          New-Item -ItemType Directory -Path "release\msi" -Force
+          # Create release directory
+          New-Item -ItemType Directory -Path "release" -Force
           
-          # Create ZIP packages for each platform
+          # Process ZIP artifacts and create final ZIP packages
           @("x86", "x64") | ForEach-Object {
             $platform = $_
-            $zipArtifactPath = "artifacts\DirectOutput-ZIP-$VERSION_LONG-Release-$platform"
+            $zipArtifactPath = "artifacts\DirectOutput-$VERSION_LONG-Release-$platform.zip"
             
             if (Test-Path $zipArtifactPath) {
               $zipName = "DirectOutput-release-$platform-$DATE.zip"
-              $zipPath = "release\zip\$zipName"
+              $zipPath = "release\$zipName"
               
               # Create ZIP using PowerShell
               Compress-Archive -Path "$zipArtifactPath\*" -DestinationPath $zipPath -Force
-              Write-Host "Created ZIP: $zipPath"
+              Write-Host "Prepared release ZIP: $zipPath"
             } else {
               Write-Warning "ZIP artifact not found: $zipArtifactPath"
             }
           }
           
-          # Copy MSI installer (x86 only)
-          $msiArtifactPath = "artifacts\DirectOutput-MSI-$VERSION_LONG-Release-x86"
+          # Copy MSI installer directly (x86 only) - no need to zip MSI files
+          $msiArtifactPath = "artifacts\DirectOutput-$VERSION_LONG-Release-x86.msi"
           if (Test-Path $msiArtifactPath) {
             Get-ChildItem "$msiArtifactPath\*.msi" | ForEach-Object {
-              $msiDestPath = "release\msi\$($_.Name)"
+              $msiDestPath = "release\$($_.Name)"
               Copy-Item $_.FullName $msiDestPath -Force
-              Write-Host "Created MSI: $msiDestPath"
+              Write-Host "Prepared release MSI: $msiDestPath"
             }
           } else {
             Write-Warning "MSI artifact not found: $msiArtifactPath"
           }
-
-      - name: Upload ZIP release packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: DirectOutput-Release-${{ github.run_number }}
-          path: release/zip
-          retention-days: 90
-
-      - name: Upload MSI release packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: DirectOutput-MSI-Release-${{ github.run_number }}
-          path: release/msi
-          retention-days: 90
-
-  create-github-release:
-    name: Create GitHub Release
-    runs-on: windows-2022
-    needs: [build, create-release]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && startsWith(github.ref, 'refs/tags/')
-    
-    steps:
-      - name: Download release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: DirectOutput-Release-${{ github.run_number }}
-          path: release
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
