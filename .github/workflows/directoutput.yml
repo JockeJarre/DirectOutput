@@ -80,24 +80,96 @@ jobs:
       - name: Install WiX Toolset v3.14
         if: matrix.config == 'Release'
         run: |
-          # Download and install WiX Toolset v3.14
-          Write-Host "Downloading WiX Toolset v3.14..."
-          Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe" -OutFile "wix314.exe"
+          # Download and install WiX Toolset v3.14.0 command-line tools
+          Write-Host "Downloading WiX Toolset v3.14.0..."
+          try {
+            Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix314rtm/wix314.exe" -OutFile "wix314.exe" -UseBasicParsing
+            Write-Host "Downloaded WiX installer: $(Get-Item wix314.exe | Select-Object Name, Length)"
+          } catch {
+            Write-Error "Failed to download WiX installer: $($_.Exception.Message)"
+            exit 1
+          }
           
-          Write-Host "Installing WiX Toolset..."
-          Start-Process -FilePath ".\wix314.exe" -ArgumentList "/quiet" -Wait -PassThru
+          Write-Host "Installing WiX Toolset command-line tools..."
+          try {
+            $process = Start-Process -FilePath ".\wix314.exe" -ArgumentList "/quiet" -Wait -PassThru
+            Write-Host "WiX installer exit code: $($process.ExitCode)"
+            if ($process.ExitCode -ne 0) {
+              Write-Error "WiX installer failed with exit code: $($process.ExitCode)"
+              exit 1
+            }
+          } catch {
+            Write-Error "Failed to run WiX installer: $($_.Exception.Message)"
+            exit 1
+          }
           
-          # Verify installation
+          # Verify command-line tools installation
           $wixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
           if (Test-Path $wixPath) {
-            Write-Host "WiX Toolset installed successfully at: $wixPath"
+            Write-Host "WiX Toolset command-line tools installed successfully at: $wixPath"
             # Add WiX to PATH for this step and subsequent steps
             echo "$wixPath" >> $env:GITHUB_PATH
             # Also set environment variable that MSBuild looks for
             echo "WIX=$($wixPath.Replace('\bin', ''))" >> $env:GITHUB_ENV
+            
+            # Verify key WiX tools are available
+            $tools = @("candle.exe", "light.exe", "heat.exe")
+            foreach ($tool in $tools) {
+              if (Test-Path "$wixPath\$tool") {
+                Write-Host "✅ Found $tool"
+              } else {
+                Write-Warning "⚠️ Missing $tool"
+              }
+            }
           } else {
-            Write-Error "WiX Toolset installation failed - path not found: $wixPath"
+            Write-Error "WiX Toolset command-line tools installation failed - path not found: $wixPath"
             exit 1
+          }
+          
+          # Install WiX v3 - Visual Studio 2022 Extension
+          Write-Host "Installing WiX v3 - Visual Studio 2022 Extension..."
+          
+          # Download the WiX VS2022 extension VSIX file
+          try {
+            $vsixUrl = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/WixToolset/vsextensions/WixToolsetVisualStudio2022Extension/1.0.0.22/vspackage"
+            $vsixPath = "WixToolsetVisualStudio2022Extension.vsix"
+            Invoke-WebRequest -Uri $vsixUrl -OutFile $vsixPath -UseBasicParsing
+            Write-Host "Downloaded WiX VS extension: $(Get-Item $vsixPath | Select-Object Name, Length)"
+          } catch {
+            Write-Warning "Failed to download WiX VS extension: $($_.Exception.Message)"
+            Write-Host "Continuing without VS extension - command-line tools should still work"
+            return
+          }
+          
+          # Install the VSIX extension using VSIXInstaller
+          $vsixInstaller = $null
+          $vsEditions = @("Enterprise", "Professional", "Community", "BuildTools")
+          foreach ($edition in $vsEditions) {
+            $testPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\$edition\Common7\IDE\VSIXInstaller.exe"
+            if (Test-Path $testPath) {
+              $vsixInstaller = $testPath
+              Write-Host "Found VSIXInstaller for $edition edition"
+              break
+            }
+          }
+          
+          if ($vsixInstaller) {
+            try {
+              Write-Host "Installing WiX VS2022 extension using: $vsixInstaller"
+              $process = Start-Process -FilePath $vsixInstaller -ArgumentList "/quiet", "/admin", $vsixPath -Wait -PassThru
+              Write-Host "VSIX installer exit code: $($process.ExitCode)"
+              if ($process.ExitCode -eq 0) {
+                Write-Host "✅ WiX VS2022 extension installation completed successfully"
+              } else {
+                Write-Warning "⚠️ WiX VS2022 extension installation may have failed (exit code: $($process.ExitCode))"
+              }
+            } catch {
+              Write-Warning "Failed to install WiX VS extension: $($_.Exception.Message)"
+            }
+          } else {
+            Write-Warning "VSIXInstaller not found. WiX extension may not be installed, but command-line tools should still work for MSBuild."
+            Write-Host "Available VS installations:"
+            Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
           }
 
       - name: Download and setup NuGet
@@ -190,105 +262,15 @@ jobs:
             exit $LASTEXITCODE 
           }
           
-          # Build the entire solution (like BuildRelease.bat) but exclude WiX project to avoid cross-compilation issues
-          Write-Host "Building solution (excluding DOFSetup project for x64 to avoid WiX cross-compilation issues)..."
-          if ("${{ matrix.platform }}" -eq "x64") {
-            # For x64, build specific projects to avoid WiX cross-compilation issues
-            Write-Host "Building individual projects for x64..."
-            $projects = @(
-              "AssemblyInfo\AssemblyInfo.csproj",
-              "Extensions\Extensions.csproj", 
-              "DirectOutput\DirectOutput.csproj",
-              "B2SServerPlugin\B2SServerPlugin.csproj",
-              "LedControlFileTester\LedControlFileTester.csproj",
-              "DirectOutputConfigTester\DirectOutputConfigTester.csproj",
-              "DocumentationHelper\DocumentationHelper.csproj",
-              "GlobalConfigEditor\GlobalConfigEditor.csproj",
-              "UpdateNotification\UpdateNotification.csproj",
-              "DirectOutputComObject\DirectOutputComObject.vbproj",
-              "DirectOutputComObjectRegister\DirectOutputComObjectRegister.csproj",
-              "DirectOutput PinballX Plugin\DirectOutput PinballX Plugin.csproj",
-              "Test\Test.csproj",
-              "ProPinballBridge\ProPinballBridge.vcxproj",
-              "ProPinballSlave\ProPinballSlave.csproj",
-              "DOFSetupB2SFixup\DOFSetupB2SFixup.csproj",
-              "DOFSetupPBXFixup\DOFSetupPBXFixup.csproj"
-            )
-            foreach ($project in $projects) {
-              Write-Host "Building $project..."
-              msbuild $project -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
-              if ($LASTEXITCODE -ne 0) { 
-                Write-Error "Build failed for $project"
-                exit $LASTEXITCODE 
-              }
-            }
-          } else {
-            # For x86, build the full solution (WiX will work)
-            msbuild DirectOutput.sln -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
-            if ($LASTEXITCODE -ne 0) { 
-              Write-Error "Solution build failed"
-              exit $LASTEXITCODE 
-            }
+          # Build the entire solution (like BuildRelease.bat)
+          Write-Host "Building complete solution..."
+          msbuild DirectOutput.sln -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
+          if ($LASTEXITCODE -ne 0) { 
+            Write-Error "Solution build failed"
+            exit $LASTEXITCODE 
           }
           
           Write-Host "✅ Solution build completed successfully"
-
-      - name: Build WiX setup projects
-        if: matrix.config == 'Release' && matrix.platform == 'x86'
-        run: |
-          # Verify WiX is available
-          $wixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
-          if (-not (Test-Path "$wixPath\candle.exe")) {
-            Write-Error "WiX Toolset not found at expected location: $wixPath"
-            exit 1
-          }
-          
-          Write-Host "Building WiX setup projects for x86 only (WiX toolset is 32-bit)..."
-          
-          # Build the WiX-based setup helper projects first
-          Write-Host "Building DOFSetupB2SFixup..."
-          msbuild DOFSetupB2SFixup\DOFSetupB2SFixup.csproj -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          
-          Write-Host "Building DOFSetupPBXFixup..."
-          msbuild DOFSetupPBXFixup\DOFSetupPBXFixup.csproj -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          
-          # Build the main WiX installer project
-          Write-Host "Building DOFSetup.msi..."
-          
-          # Debug: Show current paths and environment
-          Write-Host "Current directory: $(Get-Location)"
-          Write-Host "SolutionDir would be: $(Resolve-Path .)"
-          Write-Host "Platform: ${{ matrix.platform }}"
-          Write-Host "Configuration: ${{ matrix.config }}"
-          
-          # Check if the required COM object files exist
-          $comDll = "bin\${{ matrix.platform }}\${{ matrix.config }}\DirectOutputComObject.dll"
-          $comTlb = "bin\${{ matrix.platform }}\${{ matrix.config }}\DirectOutputComObject.tlb"
-          Write-Host "Checking for COM files:"
-          Write-Host "  DLL: $(Test-Path $comDll) - $comDll"
-          Write-Host "  TLB: $(Test-Path $comTlb) - $comTlb"
-          
-          # Build with more verbose output to see the actual heat.exe command
-          # Set SolutionDir to fix WiX Heat.exe path issues
-          $solutionDir = "$(Resolve-Path .)\"
-          Write-Host "Setting SolutionDir to: $solutionDir"
-          
-          # Build WiX project without rebuilding project references (they're already built by solution build)
-          Write-Host "Building WiX project (skipping project references since they're already built)..."
-          msbuild DOFSetup\DOFSetup.wixproj -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -p:SolutionDir="$solutionDir" -p:BuildProjectReferences=false -v:normal -nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          
-          # Verify the MSI was created
-          $msiPath = "DOFSetup\bin\${{ matrix.platform }}\${{ matrix.config }}\DOFSetup.msi"
-          if (Test-Path $msiPath) {
-            $msiSize = (Get-Item $msiPath).Length
-            Write-Host "Successfully created DOFSetup.msi ($([math]::Round($msiSize/1MB, 2)) MB) at: $msiPath"
-          } else {
-            Write-Error "DOFSetup.msi was not created at expected location: $msiPath"
-            exit 1
-          }
 
       - name: Create ZIP release package
         if: matrix.config == 'Release'
