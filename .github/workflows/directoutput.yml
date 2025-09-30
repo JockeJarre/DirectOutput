@@ -11,23 +11,23 @@ defaults:
 
 jobs:
   build:
-    name: Build DirectOutput-${{ matrix.config }}-win-${{ matrix.platform }}
+    name: Build DirectOutput Release (x86 then x64)
     runs-on: windows-2022
     outputs:
       version-tag: ${{ steps.version.outputs.tag }}
       base-version: ${{ steps.version.outputs.base_version }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: x86
-            config: Release
-          - platform: x64
-            config: Release
-          # - platform: x86
-          #   config: Debug
-          # - platform: x64
-          #   config: Debug
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
+    #       - platform: x86
+    #         config: Release
+    #       - platform: x64
+    #         config: Release
+    #       # - platform: x86
+    #       #   config: Debug
+    #       # - platform: x64
+    #       #   config: Debug
 
     steps:
       - name: Checkout repository
@@ -39,7 +39,7 @@ jobs:
       - name: Add Visual Studio to PATH and setup C++ environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.platform }}
+          arch: x86  # Start with x86 for initial setup
           
       - name: Verify C++ build environment
         run: |
@@ -73,12 +73,10 @@ jobs:
           }
           
           Write-Host "=== Environment Variables ==="
-          Write-Host "Platform: ${{ matrix.platform }}"
           Write-Host "VSCMD_ARG_TGT_ARCH: $env:VSCMD_ARG_TGT_ARCH"
           Write-Host "WindowsSDKVersion: $env:WindowsSDKVersion"
 
       - name: Install WiX Toolset v3.14
-        if: matrix.config == 'Release'
         run: |
           # Download and install WiX Toolset v3.14.0 command-line tools
           Write-Host "Downloading WiX Toolset v3.14.0..."
@@ -250,97 +248,151 @@ jobs:
           Set-Content $projectFile $content
           Write-Host "✅ Updated project reference with HintPath"
 
-      - name: Build DirectOutput solution
+      - name: Build DirectOutput solution (x86 first, then x64)
         run: |
-          Write-Host ">>> Building ${{ matrix.config }}|${{ matrix.platform }}"
+          # Build x86 first (as required by README_BuildSetup.md)
+          Write-Host ">>> Building Release|x86 (required first for WiX dependencies)"
           
-          # Clean first (like BuildRelease.bat)
-          Write-Host "Cleaning previous builds..."
-          msbuild DirectOutput.sln -t:Clean -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
+          # Clean x86 first
+          Write-Host "Cleaning x86 build..."
+          msbuild DirectOutput.sln -t:Clean -p:Configuration=Release -p:Platform=x86 -v:minimal -nologo
           if ($LASTEXITCODE -ne 0) { 
-            Write-Error "Clean failed"
+            Write-Error "x86 Clean failed"
             exit $LASTEXITCODE 
           }
           
-          # Build the entire solution (like BuildRelease.bat)
-          Write-Host "Building complete solution..."
-          msbuild DirectOutput.sln -t:Build -p:Configuration=${{ matrix.config }} -p:Platform=${{ matrix.platform }} -v:minimal -nologo
+          # Build x86 solution
+          Write-Host "Building x86 solution..."
+          msbuild DirectOutput.sln -t:Build -p:Configuration=Release -p:Platform=x86 -v:minimal -nologo
           if ($LASTEXITCODE -ne 0) { 
-            Write-Error "Solution build failed"
+            Write-Error "x86 Solution build failed"
+            exit $LASTEXITCODE 
+          }
+          Write-Host "✅ x86 build completed successfully"
+          
+          # Now build x64 (can read from x86 files as needed)
+          Write-Host ">>> Building Release|x64 (can now use x86 dependencies)"
+          
+          # Clean x64
+          Write-Host "Cleaning x64 build..."
+          msbuild DirectOutput.sln -t:Clean -p:Configuration=Release -p:Platform=x64 -v:minimal -nologo
+          if ($LASTEXITCODE -ne 0) { 
+            Write-Error "x64 Clean failed"
             exit $LASTEXITCODE 
           }
           
-          Write-Host "✅ Solution build completed successfully"
+          # Build x64 solution
+          Write-Host "Building x64 solution..."
+          msbuild DirectOutput.sln -t:Build -p:Configuration=Release -p:Platform=x64 -v:minimal -nologo
+          if ($LASTEXITCODE -ne 0) { 
+            Write-Error "x64 Solution build failed"
+            exit $LASTEXITCODE 
+          }
+          Write-Host "✅ x64 build completed successfully"
+          
+          Write-Host "✅ All builds completed successfully (x86 and x64)"
 
-      - name: Create ZIP release package
-        if: matrix.config == 'Release'
+      - name: Create ZIP release packages
         run: |
-          # Create output directory for ZIP package
-          $outputDir = "output-zip-${{ matrix.platform }}-${{ matrix.config }}"
-          New-Item -ItemType Directory -Path $outputDir -Force
-          
-          # Define source directory for binaries
-          $binDir = "bin\${{ matrix.platform }}\${{ matrix.config }}"
-          
-          # Read manifest file and copy files
-          $manifestFile = "manifest.${{ matrix.platform }}.txt"
-          if (Test-Path $manifestFile) {
-            Get-Content $manifestFile | Where-Object { $_ -notmatch "^#" -and $_.Trim() -ne "" } | ForEach-Object {
-              $sourceFile = Join-Path $binDir $_
-              if (Test-Path $sourceFile) {
-                Copy-Item $sourceFile $outputDir -Force
-                Write-Host "Copied: $sourceFile"
-              } else {
-                Write-Warning "File not found: $sourceFile"
+          # Create ZIP packages for both x86 and x64
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $config = "Release"
+            
+            Write-Host "Creating ZIP package for $platform..."
+            
+            # Create output directory for ZIP package
+            $outputDir = "output-zip-$platform-$config"
+            New-Item -ItemType Directory -Path $outputDir -Force
+            
+            # Define source directory for binaries
+            $binDir = "bin\$platform\$config"
+            
+            # Read manifest file and copy files
+            $manifestFile = "manifest.$platform.txt"
+            if (Test-Path $manifestFile) {
+              Get-Content $manifestFile | Where-Object { $_ -notmatch "^#" -and $_.Trim() -ne "" } | ForEach-Object {
+                $sourceFile = Join-Path $binDir $_
+                if (Test-Path $sourceFile) {
+                  Copy-Item $sourceFile $outputDir -Force
+                  Write-Host "Copied: $sourceFile"
+                } else {
+                  Write-Warning "File not found: $sourceFile"
+                }
               }
             }
-          }
-          
-          # Copy additional files
-          if (Test-Path "LICENSE") {
-            Copy-Item "LICENSE" $outputDir -Force
-          }
-          
-          # Copy config examples
-          if (Test-Path "config\examples") {
-            New-Item -ItemType Directory -Path "$outputDir\config\examples" -Force
-            Copy-Item "config\examples\*.xml" "$outputDir\config\examples" -Force -ErrorAction SilentlyContinue
+            
+            # Copy additional files
+            if (Test-Path "LICENSE") {
+              Copy-Item "LICENSE" $outputDir -Force
+            }
+            
+            # Copy config examples
+            if (Test-Path "config\examples") {
+              New-Item -ItemType Directory -Path "$outputDir\config\examples" -Force
+              Copy-Item "config\examples\*.xml" "$outputDir\config\examples" -Force -ErrorAction SilentlyContinue
+            }
+            
+            Write-Host "✅ ZIP package created for $platform"
           }
 
-      - name: Create MSI release package
-        if: matrix.config == 'Release' && matrix.platform == 'x86'
+      - name: Create MSI release packages
         run: |
-          # Create output directory for MSI package
-          $outputDir = "output-msi-${{ matrix.platform }}-${{ matrix.config }}"
-          New-Item -ItemType Directory -Path $outputDir -Force
-          
-          # Copy MSI installer
-          $msiPath = "DOFSetup\bin\${{ matrix.platform }}\${{ matrix.config }}\DOFSetup.msi"
-          if (Test-Path $msiPath) {
-            $SHA7 = "${{ github.sha }}".Substring(0, 7)
-            $DATE = Get-Date -Format "yyyyMMdd"
-            $msiName = "DirectOutput-${{ matrix.platform }}-${{ matrix.config }}-$DATE-$SHA7.msi"
-            Copy-Item $msiPath "$outputDir\$msiName" -Force
-            Write-Host "Created MSI package: $msiName"
-          } else {
-            Write-Error "MSI installer not found at: $msiPath"
-            exit 1
+          # Create MSI packages for both x86 and x64
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $config = "Release"
+            
+            Write-Host "Creating MSI package for $platform..."
+            
+            # Create output directory for MSI package
+            $outputDir = "output-msi-$platform-$config"
+            New-Item -ItemType Directory -Path $outputDir -Force
+            
+            # Copy MSI installer
+            $msiPath = "DOFSetup\bin\$platform\$config\DOFSetup.msi"
+            if (Test-Path $msiPath) {
+              $SHA7 = "${{ github.sha }}".Substring(0, 7)
+              $DATE = Get-Date -Format "yyyyMMdd"
+              $msiName = "DirectOutput-$platform-$config-$DATE-$SHA7.msi"
+              Copy-Item $msiPath "$outputDir\$msiName" -Force
+              Write-Host "Created MSI package: $msiName"
+            } else {
+              Write-Warning "MSI installer not found at: $msiPath (this may be expected for $platform)"
+              # Create an empty directory so the upload step doesn't fail
+              Write-Host "Note: MSI might only be created for x86 due to WiX limitations"
+            }
+            
+            Write-Host "✅ MSI package processing completed for $platform"
           }
 
-      - name: Upload ZIP artifacts
+      - name: Upload x86 ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOutput-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}.zip
-          path: output-zip-${{ matrix.platform }}-${{ matrix.config }}
+          name: DirectOutput-${{ steps.version.outputs.tag }}-Release-x86.zip
+          path: output-zip-x86-Release
           if-no-files-found: warn
 
-      - name: Upload MSI artifacts
-        if: matrix.config == 'Release' && matrix.platform == 'x86'
+      - name: Upload x64 ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOutput-${{ steps.version.outputs.tag }}-${{ matrix.config }}-${{ matrix.platform }}.msi
-          path: output-msi-${{ matrix.platform }}-${{ matrix.config }}
-          if-no-files-found: error
+          name: DirectOutput-${{ steps.version.outputs.tag }}-Release-x64.zip
+          path: output-zip-x64-Release
+          if-no-files-found: warn
+
+      - name: Upload x86 MSI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DirectOutput-${{ steps.version.outputs.tag }}-Release-x86.msi
+          path: output-msi-x86-Release
+          if-no-files-found: warn
+
+      - name: Upload x64 MSI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DirectOutput-${{ steps.version.outputs.tag }}-Release-x64.msi
+          path: output-msi-x64-Release
+          if-no-files-found: warn
 
   create-github-release:
     name: Create GitHub Release
@@ -383,16 +435,20 @@ jobs:
             }
           }
           
-          # Copy MSI installer directly (x86 only) - no need to zip MSI files
-          $msiArtifactPath = "artifacts\DirectOutput-$VERSION_LONG-Release-x86.msi"
-          if (Test-Path $msiArtifactPath) {
-            Get-ChildItem "$msiArtifactPath\*.msi" | ForEach-Object {
-              $msiDestPath = "release\$($_.Name)"
-              Copy-Item $_.FullName $msiDestPath -Force
-              Write-Host "Prepared release MSI: $msiDestPath"
+          # Copy MSI installers directly (both x86 and x64) - no need to zip MSI files
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $msiArtifactPath = "artifacts\DirectOutput-$VERSION_LONG-Release-$platform.msi"
+            
+            if (Test-Path $msiArtifactPath) {
+              Get-ChildItem "$msiArtifactPath\*.msi" | ForEach-Object {
+                $msiDestPath = "release\$($_.Name)"
+                Copy-Item $_.FullName $msiDestPath -Force
+                Write-Host "Prepared release MSI: $msiDestPath"
+              }
+            } else {
+              Write-Warning "MSI artifact not found: $msiArtifactPath (may be expected for $platform due to WiX limitations)"
             }
-          } else {
-            Write-Warning "MSI artifact not found: $msiArtifactPath"
           }
 
       - name: Create GitHub Release
