@@ -141,13 +141,49 @@ jobs:
           
           # Install the VSIX extension using VSIXInstaller
           $vsixInstaller = $null
+          
+          # First, let's see what VS installations are actually available
+          Write-Host "=== Searching for Visual Studio installations ==="
+          $vs2022Path = "${env:ProgramFiles}\Microsoft Visual Studio\2022"
+          $vs2022x86Path = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022"
+          
+          # Check both Program Files locations
+          $vsBasePaths = @($vs2022Path, $vs2022x86Path)
           $vsEditions = @("Enterprise", "Professional", "Community", "BuildTools")
-          foreach ($edition in $vsEditions) {
-            $testPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\$edition\Common7\IDE\VSIXInstaller.exe"
-            if (Test-Path $testPath) {
-              $vsixInstaller = $testPath
-              Write-Host "Found VSIXInstaller for $edition edition"
-              break
+          
+          foreach ($basePath in $vsBasePaths) {
+            if (Test-Path $basePath) {
+              Write-Host "Found VS base path: $basePath"
+              Get-ChildItem $basePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "  Available edition: $($_.Name)"
+              }
+              
+              foreach ($edition in $vsEditions) {
+                $testPath = "$basePath\$edition\Common7\IDE\VSIXInstaller.exe"
+                if (Test-Path $testPath) {
+                  $vsixInstaller = $testPath
+                  Write-Host "✅ Found VSIXInstaller for $edition edition at: $testPath"
+                  break
+                }
+              }
+              if ($vsixInstaller) { break }
+            }
+          }
+          
+          # If still not found, try to use vswhere to locate VS
+          if (-not $vsixInstaller) {
+            $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+            if (Test-Path $vsWhere) {
+              Write-Host "Using vswhere to locate Visual Studio..."
+              $vsInstallations = & $vsWhere -products * -requires Microsoft.VisualStudio.Workload.MSBuildTools -format json | ConvertFrom-Json
+              foreach ($installation in $vsInstallations) {
+                $testPath = "$($installation.installationPath)\Common7\IDE\VSIXInstaller.exe"
+                if (Test-Path $testPath) {
+                  $vsixInstaller = $testPath
+                  Write-Host "✅ Found VSIXInstaller via vswhere at: $testPath"
+                  break
+                }
+              }
             }
           }
           
@@ -165,9 +201,25 @@ jobs:
               Write-Warning "Failed to install WiX VS extension: $($_.Exception.Message)"
             }
           } else {
-            Write-Warning "VSIXInstaller not found. WiX extension may not be installed, but command-line tools should still work for MSBuild."
-            Write-Host "Available VS installations:"
-            Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+            Write-Warning "VSIXInstaller not found in any Visual Studio installation."
+            Write-Host "=== Diagnostic Information ==="
+            Write-Host "Checked paths:"
+            foreach ($basePath in @("${env:ProgramFiles}\Microsoft Visual Studio\2022", "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022")) {
+              Write-Host "  Base: $basePath"
+              if (Test-Path $basePath) {
+                Get-ChildItem $basePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                  $vsixPath = "$($_.FullName)\Common7\IDE\VSIXInstaller.exe"
+                  $exists = Test-Path $vsixPath
+                  Write-Host "    $($_.Name): VSIXInstaller exists = $exists"
+                  if ($exists) {
+                    Write-Host "      Path: $vsixPath"
+                  }
+                }
+              } else {
+                Write-Host "    (Directory does not exist)"
+              }
+            }
+            Write-Warning "WiX extension will not be installed, but command-line tools should still work for MSBuild."
           }
 
       - name: Download and setup NuGet
@@ -313,6 +365,18 @@ jobs:
             if (Test-Path $manifestFile) {
               Get-Content $manifestFile | Where-Object { $_ -notmatch "^#" -and $_.Trim() -ne "" } | ForEach-Object {
                 $sourceFile = Join-Path $binDir $_
+                
+                # Handle x64 naming issue: MainDofDll -> DirectOutput.dll
+                if ($platform -eq "x64" -and $_ -eq "DirectOutput.dll") {
+                  $alternativeFile = Join-Path $binDir "MainDofDll"
+                  if (-not (Test-Path $sourceFile) -and (Test-Path $alternativeFile)) {
+                    Write-Host "Found x64 naming issue: copying MainDofDll as DirectOutput.dll"
+                    Copy-Item $alternativeFile (Join-Path $outputDir "DirectOutput.dll") -Force
+                    Write-Host "Copied: $alternativeFile -> DirectOutput.dll"
+                    return
+                  }
+                }
+                
                 if (Test-Path $sourceFile) {
                   Copy-Item $sourceFile $outputDir -Force
                   Write-Host "Copied: $sourceFile"
@@ -435,16 +499,15 @@ jobs:
             }
           }
           
-          # Copy MSI installers directly (both x86 and x64) - no need to zip MSI files
+          # Copy MSI installers directly (no zipping needed for MSI files)
           @("x86", "x64") | ForEach-Object {
             $platform = $_
             $msiArtifactPath = "artifacts\DirectOutput-$VERSION_LONG-Release-$platform.msi"
             
             if (Test-Path $msiArtifactPath) {
               Get-ChildItem "$msiArtifactPath\*.msi" | ForEach-Object {
-                $msiDestPath = "release\$($_.Name)"
-                Copy-Item $_.FullName $msiDestPath -Force
-                Write-Host "Prepared release MSI: $msiDestPath"
+                Copy-Item $_.FullName "release\" -Force
+                Write-Host "Copied MSI file: $($_.Name)"
               }
             } else {
               Write-Warning "MSI artifact not found: $msiArtifactPath (may be expected for $platform due to WiX limitations)"
