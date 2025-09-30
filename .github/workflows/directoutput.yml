@@ -33,9 +33,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
       - name: Setup MSBuild and Visual Studio
         uses: microsoft/setup-msbuild@v2
 
@@ -135,9 +132,6 @@ jobs:
           Write-Host "VERSION_LONG: $VERSION_LONG"
           
           # Update SharedAssemblyInfo.cs - use the extracted base version in the regex
-          $versionPattern = [regex]::Escape("[assembly: AssemblyVersion(`"$BASE_VERSION.*`")]")
-          $replacement = "[assembly: AssemblyVersion(`"$VERSION_SHORT`")]"
-          $content = $content -replace "\[assembly:\s*AssemblyVersion\(`"$([regex]::Escape($BASE_VERSION))\.\*`"\)\]", $replacement
           $content = $content + "`n[assembly: AssemblyFileVersion(`"$VERSION_SHORT`")]`n[assembly: AssemblyInformationalVersion(`"$VERSION_LONG`")]"
           Set-Content $sharedAssemblyInfo $content
           
