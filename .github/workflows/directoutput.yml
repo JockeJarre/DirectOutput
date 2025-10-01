@@ -342,23 +342,48 @@ jobs:
           }
           Write-Host "✅ x64 build completed successfully"
           
-          # Fix x64 naming issue for MSI building
-          Write-Host ">>> Fixing x64 file naming for MSI creation"
-          $x64BinDir = "bin\x64\Release"
-          $mainDofDllPath = "$x64BinDir\MainDofDll"
-          $directOutputDllPath = "$x64BinDir\DirectOutput.dll"
+          # Fix x64 naming issue and verify WiX requirements
+          Write-Host ">>> Post-build verification and fixes"
           
-          if (Test-Path $mainDofDllPath) {
-            if (Test-Path $directOutputDllPath) {
-              Write-Host "DirectOutput.dll already exists, backing up..."
-              Move-Item $directOutputDllPath "$directOutputDllPath.backup" -Force
+          # Check what files were actually created
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $binDir = "bin\$platform\Release"
+            Write-Host "Contents of $binDir`:"
+            if (Test-Path $binDir) {
+              Get-ChildItem $binDir | Select-Object Name, Length | Format-Table -AutoSize
+            } else {
+              Write-Warning "$binDir does not exist!"
             }
-            Copy-Item $mainDofDllPath $directOutputDllPath -Force
-            Write-Host "✅ Copied MainDofDll to DirectOutput.dll for MSI building"
-          } else {
-            Write-Host "⚠️ MainDofDll not found, checking if DirectOutput.dll exists..."
-            if (-not (Test-Path $directOutputDllPath)) {
-              Write-Warning "Neither MainDofDll nor DirectOutput.dll found in x64 build!"
+          }
+          
+          # Check if WiX generated files exist
+          Write-Host "Checking WiX generated files..."
+          @("Generated\RegisterDirectOutputComObjectDll.wxs", "Generated\RegisterDirectOutputComObjectTlb.wxs") | ForEach-Object {
+            $wixFile = "DOFSetup\$_"
+            if (Test-Path $wixFile) {
+              Write-Host "✅ Found: $wixFile"
+            } else {
+              Write-Warning "❌ Missing: $wixFile (Heat tool may have failed)"
+            }
+          }
+          
+          # Check for COM object files
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $comDll = "bin\$platform\Release\DirectOutputComObject.dll"
+            $comTlb = "bin\$platform\Release\DirectOutputComObject.tlb"
+            
+            if (Test-Path $comDll) {
+              Write-Host "✅ Found COM DLL: $comDll"
+            } else {
+              Write-Warning "❌ Missing COM DLL: $comDll"
+            }
+            
+            if (Test-Path $comTlb) {
+              Write-Host "✅ Found COM TLB: $comTlb"
+            } else {
+              Write-Warning "❌ Missing COM TLB: $comTlb"
             }
           }
           
@@ -429,22 +454,38 @@ jobs:
             
             Write-Host "Creating MSI package for $platform..."
             
-            # Create output directory for MSI package
-            $outputDir = "output-msi-$platform-$config"
-            New-Item -ItemType Directory -Path $outputDir -Force
-            
-            # Copy MSI installer
+            # Check if MSI was actually built
             $msiPath = "DOFSetup\bin\$platform\$config\DOFSetup.msi"
+            Write-Host "Looking for MSI at: $msiPath"
+            
             if (Test-Path $msiPath) {
+              $msiInfo = Get-Item $msiPath
+              Write-Host "✅ Found MSI: $($msiInfo.Length) bytes, modified: $($msiInfo.LastWriteTime)"
+              
+              # Create output directory for MSI package
+              $outputDir = "output-msi-$platform-$config"
+              New-Item -ItemType Directory -Path $outputDir -Force
+              
               $SHA7 = "${{ github.sha }}".Substring(0, 7)
               $DATE = Get-Date -Format "yyyyMMdd"
               $msiName = "DirectOutput-$platform-$config-$DATE-$SHA7.msi"
               Copy-Item $msiPath "$outputDir\$msiName" -Force
-              Write-Host "Created MSI package: $msiName"
+              Write-Host "Created MSI package: $msiName (Size: $([math]::Round($msiInfo.Length/1MB, 2)) MB)"
             } else {
-              Write-Warning "MSI installer not found at: $msiPath (this may be expected for $platform)"
-              # Create an empty directory so the upload step doesn't fail
-              Write-Host "Note: MSI might only be created for x86 due to WiX limitations"
+              Write-Warning "❌ MSI installer not found at: $msiPath"
+              Write-Host "Checking DOFSetup build output directory..."
+              $dofSetupBinDir = "DOFSetup\bin\$platform\$config"
+              if (Test-Path $dofSetupBinDir) {
+                Write-Host "Contents of $dofSetupBinDir`:"
+                Get-ChildItem $dofSetupBinDir | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+              } else {
+                Write-Host "Directory $dofSetupBinDir does not exist"
+              }
+              
+              # Create empty directory so upload doesn't fail
+              $outputDir = "output-msi-$platform-$config"
+              New-Item -ItemType Directory -Path $outputDir -Force
+              Write-Host "Note: MSI creation failed for $platform"
             }
             
             Write-Host "✅ MSI package processing completed for $platform"
