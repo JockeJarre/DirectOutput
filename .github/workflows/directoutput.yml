@@ -230,6 +230,76 @@ jobs:
         run: |
           .\nuget.exe restore DirectOutput.sln
 
+      - name: Pre-create output directories and copy dependency DLLs
+        run: |
+          # Create output directories and copy dependency DLLs BEFORE building
+          # This ensures the DLLs are available when WiX builds the MSI
+          
+          Write-Host ">>> Pre-creating output directories and copying dependency DLLs"
+          
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $outputDir = "bin\$platform\Release"
+            
+            Write-Host "Creating and copying to $outputDir..."
+            
+            # Create output directory
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+            
+            # Copy Newtonsoft.Json.dll (v13.0.3)
+            $sourceFile = "packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll"
+            if (Test-Path $sourceFile) {
+              Copy-Item $sourceFile $outputDir -Force
+              Write-Host "✅ Copied Newtonsoft.Json.dll"
+            } else {
+              Write-Warning "❌ Missing: $sourceFile"
+            }
+            
+            # Copy Q42.HueApi.dll (v3.21.0)
+            $sourceFile = "packages\Q42.HueApi.3.21.0\lib\net45\Q42.HueApi.dll"
+            if (Test-Path $sourceFile) {
+              Copy-Item $sourceFile $outputDir -Force
+              Write-Host "✅ Copied Q42.HueApi.dll"
+            } else {
+              Write-Warning "❌ Missing: $sourceFile"
+            }
+            
+            # Copy Q42.HueApi.ColorConverters.dll (v3.20.1)
+            $sourceFile = "packages\Q42.HueApi.ColorConverters.3.20.1\lib\net45\Q42.HueApi.ColorConverters.dll"
+            if (Test-Path $sourceFile) {
+              Copy-Item $sourceFile $outputDir -Force
+              Write-Host "✅ Copied Q42.HueApi.ColorConverters.dll"
+            } else {
+              Write-Warning "❌ Missing: $sourceFile"
+            }
+            
+            # Copy ledwiz DLLs from DirectOutput source folder
+            if ($platform -eq "x86") {
+              $sourceFile = "DirectOutput\ledwiz32.dll"
+              if (Test-Path $sourceFile) {
+                Copy-Item $sourceFile "$outputDir\ledwiz32.dll" -Force
+                Write-Host "✅ Copied ledwiz32.dll"
+              } else {
+                Write-Warning "❌ Missing: $sourceFile"
+              }
+            } else {
+              $sourceFile = "DirectOutput\ledwiz64.dll"
+              if (Test-Path $sourceFile) {
+                Copy-Item $sourceFile "$outputDir\ledwiz64.dll" -Force
+                Write-Host "✅ Copied ledwiz64.dll"
+              } else {
+                Write-Warning "❌ Missing: $sourceFile"
+              }
+            }
+            
+            Write-Host "Pre-build contents of $outputDir:"
+            if (Test-Path $outputDir) {
+              Get-ChildItem $outputDir -Filter "*.dll" | Select-Object Name, Length | Sort-Object Name | Format-Table -AutoSize
+            }
+          }
+          
+          Write-Host "✅ Output directories created and dependency DLLs copied (ready for MSI build)"
+
       - name: Update Assembly Version
         id: version
         run: |
@@ -388,80 +458,7 @@ jobs:
           }
           
           Write-Host "✅ All builds completed successfully (x86 and x64)"
-
-      - name: Copy NuGet dependency DLLs to output directories
-        run: |
-          # Copy NuGet dependency DLLs from packages folder to both x86 and x64 output directories
-          # This ensures the manifest-controlled ZIP packages will include all dependency DLLs
-          
-          Write-Host ">>> Copying NuGet dependency DLLs to output directories"
-          
-          @("x86", "x64") | ForEach-Object {
-            $platform = $_
-            $outputDir = "bin\$platform\Release"
-            
-            Write-Host "Copying dependency DLLs to $outputDir..."
-            
-            # Ensure output directory exists
-            if (-not (Test-Path $outputDir)) {
-              Write-Warning "Output directory does not exist: $outputDir"
-              return
-            }
-            
-            # Copy Newtonsoft.Json.dll (v13.0.3)
-            $sourceFile = "packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll"
-            if (Test-Path $sourceFile) {
-              Copy-Item $sourceFile $outputDir -Force
-              Write-Host "✅ Copied Newtonsoft.Json.dll"
-            } else {
-              Write-Warning "❌ Missing: $sourceFile"
-            }
-            
-            # Copy Q42.HueApi.dll (v3.21.0)
-            $sourceFile = "packages\Q42.HueApi.3.21.0\lib\net45\Q42.HueApi.dll"
-            if (Test-Path $sourceFile) {
-              Copy-Item $sourceFile $outputDir -Force
-              Write-Host "✅ Copied Q42.HueApi.dll"
-            } else {
-              Write-Warning "❌ Missing: $sourceFile"
-            }
-            
-            # Copy Q42.HueApi.ColorConverters.dll (v3.20.1)
-            $sourceFile = "packages\Q42.HueApi.ColorConverters.3.20.1\lib\net45\Q42.HueApi.ColorConverters.dll"
-            if (Test-Path $sourceFile) {
-              Copy-Item $sourceFile $outputDir -Force
-              Write-Host "✅ Copied Q42.HueApi.ColorConverters.dll"
-            } else {
-              Write-Warning "❌ Missing: $sourceFile"
-            }
-            
-            # Copy ledwiz DLLs from DirectOutput source folder
-            if ($platform -eq "x86") {
-              $sourceFile = "DirectOutput\ledwiz32.dll"
-              if (Test-Path $sourceFile) {
-                Copy-Item $sourceFile "$outputDir\ledwiz32.dll" -Force
-                Write-Host "✅ Copied ledwiz32.dll"
-              } else {
-                Write-Warning "❌ Missing: $sourceFile"
-              }
-            } else {
-              $sourceFile = "DirectOutput\ledwiz64.dll"
-              if (Test-Path $sourceFile) {
-                Copy-Item $sourceFile "$outputDir\ledwiz64.dll" -Force
-                Write-Host "✅ Copied ledwiz64.dll"
-              } else {
-                Write-Warning "❌ Missing: $sourceFile"
-              }
-            }
-            
-            # List final contents of output directory
-            Write-Host "Final contents of $outputDir after copying dependency DLLs:"
-            if (Test-Path $outputDir) {
-              Get-ChildItem $outputDir -Filter "*.dll" | Select-Object Name, Length | Sort-Object Name | Format-Table -AutoSize
-            }
-          }
-          
-          Write-Host "✅ Dependency DLL copying completed"
+
 
       - name: Create ZIP release packages
         run: |
