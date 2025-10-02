@@ -356,6 +356,13 @@
 				<File Source="$(var.GlobalConfigEditor.TargetPath)" />
 				<File Source="$(var.LedControlFileTester.TargetPath)" />
 				<File Source="$(var.ProPinballSlave.TargetPath)" />
+
+                                <!-- NuGet dependency DLLs (copied to output directory by GitHub Actions workflow) -->
+                                <File Id="NewtonsoftJsonDll" Source="$(var.DirectOutput.TargetDir)Newtonsoft.Json.dll" />
+                                <File Id="HueApiDll" Source="$(var.DirectOutput.TargetDir)Q42.HueApi.dll" />
+                                <File Id="HueApiColorConvertersDll" Source="$(var.DirectOutput.TargetDir)Q42.HueApi.ColorConverters.dll" />
+                                <File Id="LedWiz32Dll" Source="$(var.DirectOutput.TargetDir)ledwiz32.dll" Condition="'$(var.Platform)'='x86'" />
+                                <File Id="LedWiz64Dll" Source="$(var.DirectOutput.TargetDir)ledwiz64.dll" Condition="'$(var.Platform)'='x64'" />
 
 				<!-- NOTE: DirectOutputComObject is included separately via Generated/RegisterDirectOutputComObjectDll.wxs -->
 				
