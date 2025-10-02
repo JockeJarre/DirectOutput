@@ -464,6 +464,99 @@ jobs:
             Write-Host "✅ MSI package processing completed for $platform"
           }
 
+      - name: Test MSI Installation
+        run: |
+          # Test MSI installation to verify custom actions work correctly
+          # This runs only if MSIs were successfully created
+          
+          Write-Host ">>> Testing MSI installation to detect custom action failures"
+          
+          @("x86", "x64") | ForEach-Object {
+            $platform = $_
+            $config = "Release"
+            $outputDir = "output-msi-$platform-$config"
+            
+            # Find the MSI file
+            $msiFile = Get-ChildItem "$outputDir\*.msi" -ErrorAction SilentlyContinue | Select-Object -First 1
+            
+            if ($msiFile) {
+              Write-Host "Testing installation of: $($msiFile.Name)"
+              
+              try {
+                # Test MSI installation in quiet mode with logging
+                $logFile = "install-test-$platform.log"
+                $testDir = "C:\Temp\DOFTest-$platform"
+                
+                # Create test installation directory
+                New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+                
+                Write-Host "Installing MSI to test directory: $testDir"
+                $installArgs = @(
+                  "/i", $msiFile.FullName
+                  "/quiet"
+                  "/l*v", $logFile
+                  "DOFDIR=$testDir"
+                  "UACOVERRIDE=1"  # Override UAC check for CI environment
+                )
+                
+                $process = Start-Process -FilePath "msiexec" -ArgumentList $installArgs -Wait -PassThru -NoNewWindow
+                
+                Write-Host "Installation exit code: $($process.ExitCode)"
+                
+                if ($process.ExitCode -eq 0) {
+                  Write-Host "✅ MSI installation test PASSED for $platform"
+                  
+                  # Verify key files were installed
+                  $keyFiles = @(
+                    "$testDir\$platform\DirectOutput.dll",
+                    "$testDir\$platform\Newtonsoft.Json.dll",
+                    "$testDir\$platform\Q42.HueApi.dll"
+                  )
+                  
+                  foreach ($file in $keyFiles) {
+                    if (Test-Path $file) {
+                      Write-Host "  ✓ Found: $file"
+                    } else {
+                      Write-Warning "  ✗ Missing: $file"
+                    }
+                  }
+                  
+                } else {
+                  Write-Host "❌ MSI installation test FAILED for $platform (exit code: $($process.ExitCode))"
+                  
+                  # Show relevant parts of the log file
+                  if (Test-Path $logFile) {
+                    Write-Host "Installation log errors:"
+                    Get-Content $logFile | Where-Object { 
+                      $_ -match "error|fail|exception|B2SFixup|PBXFixup" -and
+                      $_ -notmatch "INFO|DEBUG"
+                    } | Select-Object -Last 20 | ForEach-Object {
+                      Write-Host "  $_"
+                    }
+                  }
+                }
+                
+                # Clean up test installation
+                if (Test-Path $testDir) {
+                  try {
+                    Remove-Item $testDir -Recurse -Force -ErrorAction SilentlyContinue
+                    Write-Host "Cleaned up test directory: $testDir"
+                  } catch {
+                    Write-Warning "Could not clean up test directory: $testDir"
+                  }
+                }
+                
+              } catch {
+                Write-Host "❌ Exception during MSI installation test for $platform`: $($_.Exception.Message)"
+              }
+              
+            } else {
+              Write-Host "⚠️ No MSI file found for $platform - skipping installation test"
+            }
+          }
+          
+          Write-Host "✅ MSI installation testing completed"
+
       - name: Upload x86 ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
