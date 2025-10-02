@@ -236,8 +236,10 @@
       <Custom Action="SetB2SVars" Before="B2SFixup" />
       <Custom Action="B2SFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
       -->
+      <!-- Temporarily disabled PBXFixup due to temp directory access denied error
       <Custom Action="SetPBXVars" Before="PBXFixup" />
       <Custom Action="PBXFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
+      -->
     </InstallExecuteSequence>
 
   </Product>
