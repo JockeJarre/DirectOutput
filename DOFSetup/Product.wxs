@@ -232,11 +232,10 @@
     <!-- Set up our custom action sequence.  The property setter has to run
          before each C# task. -->
     <InstallExecuteSequence>
-      <!-- Temporarily disabled B2SFixup to test base installation
+      <!-- Re-enabling B2SFixup to test B2S integration -->
       <Custom Action="SetB2SVars" Before="B2SFixup" />
       <Custom Action="B2SFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
-      -->
-      <!-- Temporarily disabled PBXFixup due to temp directory access denied error
+      <!-- Keep PBXFixup disabled for now
       <Custom Action="SetPBXVars" Before="PBXFixup" />
       <Custom Action="PBXFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
       -->
