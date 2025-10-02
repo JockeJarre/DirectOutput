@@ -292,7 +292,7 @@ jobs:
               }
             }
             
-            Write-Host "Pre-build contents of $outputDir:"
+            Write-Host "Pre-build contents of ${outputDir}:"
             if (Test-Path $outputDir) {
               Get-ChildItem $outputDir -Filter "*.dll" | Select-Object Name, Length | Sort-Object Name | Format-Table -AutoSize
             }
