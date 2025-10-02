@@ -235,10 +235,9 @@
       <!-- Re-enabling B2SFixup to test B2S integration -->
       <Custom Action="SetB2SVars" Before="B2SFixup" />
       <Custom Action="B2SFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
-      <!-- Keep PBXFixup disabled for now
+      <!-- Re-enabling PBXFixup to test PinballX integration -->
       <Custom Action="SetPBXVars" Before="PBXFixup" />
       <Custom Action="PBXFixup" Before="InstallFinalize">NOT REMOVE="ALL"</Custom>
-      -->
     </InstallExecuteSequence>
 
   </Product>
