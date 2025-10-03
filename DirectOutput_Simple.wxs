@@ -21,7 +21,7 @@
     <SummaryInformation Keywords="Installer" Description="DirectOutput $(var.msiBitness)-bit Framework" Manufacturer="DirectOutput" />
     
     <!-- Retrieve the old install folder from the registry, if set -->
-    <Property Id="INSTALLFOLDER">
+    <Property Id="INSTALLFOLDER" Value="C:\DirectOutput">
       <RegistrySearch Id="InstallFolder" Type="raw" Root="HKCU" Key="SOFTWARE\DirectOutput\DirectOutput" Name="InstallPath" />
     </Property>
     
@@ -42,21 +42,51 @@
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
     <!-- Add required WiX variables -->
+    <WixVariable Id="WixUICostingPopupOptOut" Value="1" Overridable="yes" />
     <WixVariable Id="WixUILicenseRtf" Value="LICENSE" />
     <WixVariable Id="WixUIBannerBmp" Value="DOFSetup\Res\Banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="DOFSetup\Res\DialogSide.bmp" />
     
-    <!-- Use reliable WiX Common UI with directory customization support -->
-    <UIRef Id="WixUI_Common" />
-    
-    <!-- Simple UI enhancement for directory selection -->
+    <!-- Custom UI with working folder browse capability -->
     <UI>
-      <!-- Add directory browse capability -->
-      <DialogRef Id="BrowseDlg" />
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
       
-      <!-- Enable command-line directory override -->
-      <Property Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      
+      <!-- Reference standard dialogs -->
+      <DialogRef Id="BrowseDlg" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      
+      <!-- Welcome and Install Directory dialogs -->
+      <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="InstallDirDlg" />
+      <DialogRef Id="VerifyReadyDlg" />
+      
+      <!-- Fixed dialog flow that properly updates INSTALLFOLDER -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="2" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1" Condition="NOT Installed" />
+      <Publish Dialog="BrowseDlg" Control="OK" Event="SetTargetPath" Value="[_BrowseProperty]" Order="1" />
+      <!-- This is the key fix - properly set INSTALLFOLDER when browse dialog closes -->
+      <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="SetInstallFolder" Order="2" />
     </UI>
+    
+    <!-- Custom action to properly update INSTALLFOLDER from browse selection -->
+    <CustomAction Id="SetInstallFolder" Property="INSTALLFOLDER" Value="[_BrowseProperty]" Execute="immediate" />
     
     <Feature Id="ProductFeature" Title="DirectOutput" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
@@ -70,8 +100,8 @@
     <CustomAction Id="PBXFixup" Return="check" Execute="deferred" DllEntry="PBXFixup" Impersonate="yes" BinaryRef="PBXFixupDLL" />
     
     <!-- Property setters for custom actions -->
-    <CustomAction Id="SetB2SVars" Return="check" Property="B2SFixup" Value="INSTALLEDPATH=[DOFDIR];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
-    <CustomAction Id="SetPBXVars" Return="check" Property="PBXFixup" Value="INSTALLEDPATH=[DOFDIR];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
+    <CustomAction Id="SetB2SVars" Return="check" Property="B2SFixup" Value="INSTALLEDPATH=[INSTALLFOLDER];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
+    <CustomAction Id="SetPBXVars" Return="check" Property="PBXFixup" Value="INSTALLEDPATH=[INSTALLFOLDER];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
 
     <!-- Custom action execution sequence -->
     <InstallExecuteSequence>
@@ -83,18 +113,14 @@
   </Package>
 
   <Fragment>
-    <!-- Install to C:\DirectOutput with x86/x64 subdirectories for coexistence -->
-    <SetDirectory Id="INSTALLFOLDER" Value="[WindowsVolume]DirectOutput" />
-    
+    <!-- Install to user-selected folder with x86/x64 subdirectories for coexistence -->
     <Directory Id="WINDOWSVOLUME">
-      <Directory Id="INSTALLFOLDER" Name="DirectOutput">
-        <Directory Id="DOFDIR">
-          <!-- Platform-specific subdirectory for executables -->
-          <Directory Id="BINDIR" Name="$(var.BinDirName)" />
-          <!-- Shared configuration directory -->
-          <Directory Id="DOFCONFIGDIR" Name="Config">
-            <Directory Id="DOFCONFIGEXAMPLESDIR" Name="Examples" />
-          </Directory>
+      <Directory Id="INSTALLFOLDER">
+        <!-- Platform-specific subdirectory for executables -->
+        <Directory Id="BINDIR" Name="$(var.BinDirName)" />
+        <!-- Shared configuration directory -->
+        <Directory Id="DOFCONFIGDIR" Name="Config">
+          <Directory Id="DOFCONFIGEXAMPLESDIR" Name="Examples" />
         </Directory>
       </Directory>
     </Directory>
@@ -183,67 +209,67 @@
       </Component>
 
       <!-- Shared DirectOutput.dll and Extensions.dll in root for backwards compatibility -->
-      <Component Id="SharedDirectOutputDll" Directory="DOFDIR" Guid="*">
+      <Component Id="SharedDirectOutputDll" Directory="INSTALLFOLDER" Guid="*">
         <File Id="SharedDirectOutputDll" Source="bin\$(var.Platform)\Release\DirectOutput.dll" />
       </Component>
       
-      <Component Id="SharedExtensionsDll" Directory="DOFDIR" Guid="*">
+      <Component Id="SharedExtensionsDll" Directory="INSTALLFOLDER" Guid="*">
         <File Id="SharedExtensionsDll" Source="bin\$(var.Platform)\Release\Extensions.dll" />
       </Component>
       
       <!-- Registry entry to save install path -->
-      <Component Id="RegistryEntries" Directory="DOFDIR" Guid="*">
+      <Component Id="RegistryEntries" Directory="INSTALLFOLDER" Guid="*">
         <RegistryKey Root="HKCU" Key="SOFTWARE\DirectOutput\DirectOutput">
-          <RegistryValue Type="string" Name="InstallPath" Value="[DOFDIR]" KeyPath="yes" />
+          <RegistryValue Type="string" Name="InstallPath" Value="[INSTALLFOLDER]" KeyPath="yes" />
         </RegistryKey>
       </Component>
       
       <!-- Dependencies -->
-      <Component Id="NewtonsoftJson" Directory="DOFDIR" Guid="*">
+      <Component Id="NewtonsoftJson" Directory="INSTALLFOLDER" Guid="*">
         <File Id="NewtonsoftJson" Source="bin\$(var.Platform)\Release\Newtonsoft.Json.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="CilociFleeLib" Directory="DOFDIR" Guid="*">
+      <Component Id="CilociFleeLib" Directory="INSTALLFOLDER" Guid="*">
         <File Id="CilociFleeLib" Source="bin\$(var.Platform)\Release\Ciloci.Flee.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="ManagedBass" Directory="DOFDIR" Guid="*">
+      <Component Id="ManagedBass" Directory="INSTALLFOLDER" Guid="*">
         <File Id="ManagedBass" Source="bin\$(var.Platform)\Release\ManagedBass.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="ManagedBassFx" Directory="DOFDIR" Guid="*">
+      <Component Id="ManagedBassFx" Directory="INSTALLFOLDER" Guid="*">
         <File Id="ManagedBassFx" Source="bin\$(var.Platform)\Release\ManagedBass.Fx.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="ManagedBassMix" Directory="DOFDIR" Guid="*">
+      <Component Id="ManagedBassMix" Directory="INSTALLFOLDER" Guid="*">
         <File Id="ManagedBassMix" Source="bin\$(var.Platform)\Release\ManagedBass.Mix.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="HueApiLib" Directory="DOFDIR" Guid="*">
+      <Component Id="HueApiLib" Directory="INSTALLFOLDER" Guid="*">
         <File Id="HueApiLib" Source="bin\$(var.Platform)\Release\Q42.HueApi.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="HueApiColorConverters" Directory="DOFDIR" Guid="*">
+      <Component Id="HueApiColorConverters" Directory="INSTALLFOLDER" Guid="*">
         <File Id="HueApiColorConverters" Source="bin\$(var.Platform)\Release\Q42.HueApi.ColorConverters.dll" KeyPath="yes" />
       </Component>
       
       <!-- LedWiz DLL - architecture specific -->
       <?if $(var.Platform)=x64 ?>
-      <Component Id="LedWizDll" Directory="DOFDIR" Guid="*">
+      <Component Id="LedWizDll" Directory="INSTALLFOLDER" Guid="*">
         <File Id="LedWizDll" Source="bin\$(var.Platform)\Release\ledwiz64.dll" KeyPath="yes" />
       </Component>
       <?else?>
-      <Component Id="LedWizDll" Directory="DOFDIR" Guid="*">
+      <Component Id="LedWizDll" Directory="INSTALLFOLDER" Guid="*">
         <File Id="LedWizDll" Source="DirectOutput\ledwiz32.dll" KeyPath="yes" />
       </Component>
       <?endif?>
       
       <!-- Resources -->
-      <Component Id="DirectOutputShapesPng" Directory="DOFDIR" Guid="*">
+      <Component Id="DirectOutputShapesPng" Directory="INSTALLFOLDER" Guid="*">
         <File Id="DirectOutputShapesPng" Source="bin\$(var.Platform)\Release\DirectOutputShapes.png" KeyPath="yes" />
       </Component>
       
-      <Component Id="DirectOutputShapesXml" Directory="DOFDIR" Guid="*">
+      <Component Id="DirectOutputShapesXml" Directory="INSTALLFOLDER" Guid="*">
         <File Id="DirectOutputShapesXml" Source="bin\$(var.Platform)\Release\DirectOutputShapes.xml" KeyPath="yes" />
       </Component>
     </ComponentGroup>
