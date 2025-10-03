@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>DOFSetupPBXFixup</AssemblyName>
+    <RootNamespace>DOFSetupPBXFixup</RootNamespace>
+    <Platform>AnyCPU</Platform>
+    <Platforms>x86;x64</Platforms>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!-- Platform specific output paths -->
+  <PropertyGroup Condition="'$(Platform)' == 'x86'">
+    <OutputPath>bin\x86\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)' == 'x64'">
+    <OutputPath>bin\x64\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <!-- WiX Custom Action dependencies -->
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Dtf.WindowsInstaller" Version="6.0.2" />
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- Legacy COM interop references -->
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+
+  <!-- Source files -->
+  <ItemGroup>
+    <Compile Include="PBXFixup_WiX6.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <!-- Custom Action configuration -->
+  <ItemGroup>
+    <None Include="CustomAction.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

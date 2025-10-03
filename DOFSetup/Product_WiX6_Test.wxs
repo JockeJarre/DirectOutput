@@ -1,0 +1,21 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Id="*" Name="DirectOutput Setup (WiX 6 Test)" Manufacturer="DirectOutput" Language="1033" Version="3.2.9407.0" UpgradeCode="B622E2B7-9BF0-4FFE-BC4C-B0DC5E8B9C1F">
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <Media Id="1" Cabinet="DirectOutput.cab" EmbedCab="yes" />
+    
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="DirectOutput">
+        <Component Id="TestComponent" Guid="*">
+          <File Id="TestFile" Source="LICENSE" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    
+    <Feature Id="ProductFeature" Title="DirectOutput" Level="1">
+      <ComponentRef Id="TestComponent" />
+    </Feature>
+    
+  </Package>
+</Wix>
