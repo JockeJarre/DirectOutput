@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Xml;
 using System.IO;
 using Microsoft.Win32;
+using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
 namespace DOFSetupPBXFixup
@@ -63,17 +64,22 @@ namespace DOFSetupPBXFixup
                                 try
                                 {
                                     // open the file
-                                    var fs = File.OpenRead(Path.Combine(dir.ToString(), "pinballx.exe"));
-                                    var pe = new PEHeaders(fs);
-                                    if (pe.IsExe)
+                                    using (var fs = File.OpenRead(Path.Combine(dir.ToString(), "pinballx.exe")))
                                     {
-                                        bool is64 = pe.IsExe && pe.PEHeader.Magic == PEMagic.PE32Plus;
-                                        if (is64 == (bitness == "64"))
+                                        using (var peReader = new PEReader(fs))
                                         {
-                                            // success - log it
-                                            session.Log(".. InstallLocation " + (string)dir);
-                                            pbxPath = (string)dir;
-                                            break;
+                                            var headers = peReader.PEHeaders;
+                                            if (headers.IsExe)
+                                            {
+                                                bool is64 = headers.PEHeader.Magic == PEMagic.PE32Plus;
+                                                if (is64 == (bitness == "64"))
+                                                {
+                                                    // success - log it
+                                                    session.Log(".. InstallLocation " + (string)dir);
+                                                    pbxPath = (string)dir;
+                                                    break;
+                                                }
+                                            }
                                         }
                                     }
 								}
