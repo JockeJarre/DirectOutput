@@ -140,6 +140,7 @@
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
+    <!-- Temporarily disabled for build without C++ components
     <ProjectReference Include="..\ProPinballBridge\ProPinballBridge.vcxproj">
       <Name>ProPinballBridge</Name>
       <Project>{e59c8a02-9e95-4f7a-bdcc-cfcca57c3b4d}</Project>
@@ -148,6 +149,7 @@
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
+    -->
     <ProjectReference Include="..\ProPinballSlave\ProPinballSlave.csproj">
       <Name>ProPinballSlave</Name>
       <Project>{d6c8dfac-7b96-4b30-879a-455429544d22}</Project>
@@ -211,9 +213,9 @@
      pretty much by design - the GUIDs that it extracts have to be
      permanent since they're the way other programs find the COM object.
   -->
-    <HeatFile ToolPath="$(WixToolPath)" NoLogo="true" File="$(SolutionDir)bin\x86\$(Configuration)\DirectOutputComObject.dll" OutputFile="$(ProjectDir)Generated\RegisterDirectOutputComObjectDll.wxs" DirectoryRefId="BINDIR" PreprocessorVariable="var.DirectOutputComObject.TargetDir" SuppressRootDirectory="true" GenerateGuidsNow="true" SuppressFragments="true" SuppressUniqueIds="true" RunAsSeparateProcess="$(RunWixToolsOutOfProc)" />
+    <HeatFile ToolPath="$(WixToolPath)" NoLogo="true" File="D:\git\Flipper\DirectOutput_JockeJarre\bin\$(Platform)\Release\DirectOutputComObject.dll" OutputFile="$(ProjectDir)Generated\RegisterDirectOutputComObjectDll.wxs" DirectoryRefId="BINDIR" PreprocessorVariable="var.DirectOutputComObject.TargetDir" SuppressRootDirectory="true" GenerateGuidsNow="true" SuppressFragments="true" SuppressUniqueIds="true" AdditionalOptions="-scom" RunAsSeparateProcess="$(RunWixToolsOutOfProc)" />
     <!-- Run heat again to generate the Wix script elements for the
     COM type library (.tlb) -->
-    <HeatFile ToolPath="$(WixToolPath)" NoLogo="true" File="$(SolutionDir)bin\$(Platform)\$(Configuration)\DirectOutputComObject.tlb" OutputFile="$(ProjectDir)Generated\RegisterDirectOutputComObjectTlb.wxs" DirectoryRefId="BINDIR" PreprocessorVariable="var.DirectOutputComObject.TargetDir" SuppressRootDirectory="true" GenerateGuidsNow="true" SuppressFragments="true" SuppressUniqueIds="true" RunAsSeparateProcess="$(RunWixToolsOutOfProc)" Transforms="FixGeneratedTlb_$(Platform).xslt" />
+    <HeatFile ToolPath="$(WixToolPath)" NoLogo="true" File="D:\git\Flipper\DirectOutput_JockeJarre\bin\$(Platform)\Release\DirectOutputComObject.tlb" OutputFile="$(ProjectDir)Generated\RegisterDirectOutputComObjectTlb.wxs" DirectoryRefId="BINDIR" PreprocessorVariable="var.DirectOutputComObject.TargetDir" SuppressRootDirectory="true" GenerateGuidsNow="true" SuppressFragments="true" SuppressUniqueIds="true" RunAsSeparateProcess="$(RunWixToolsOutOfProc)" Transforms="FixGeneratedTlb_$(Platform).xslt" />
   </Target>
 </Project>

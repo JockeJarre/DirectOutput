@@ -45,12 +45,12 @@ What this file does:
          <xsl:apply-templates select="@*" />
          <xsl:apply-templates select="node()" />
 
-         <!-- add attribute 'Library="0"' to the relocated TypeLib node -->
-         <wix:TypeLib>
+         <!-- add attribute 'Language="0"' to the relocated TypeLib node -->
+         <TypeLib xmlns="http://schemas.microsoft.com/wix/2006/wi">
             <xsl:apply-templates select="../wix:TypeLib/@*" />
-            <xsl:attribute name="Language"><xsl:value-of select="0" /></xsl:attribute>
-            <xsl:copy-of select="../wix:TypeLib/node()" />
-         </wix:TypeLib>
+            <xsl:attribute name="Language">0</xsl:attribute>
+            <xsl:apply-templates select="../wix:TypeLib/node()" />
+         </TypeLib>
       </xsl:copy>
    </xsl:template>
 
