@@ -33,56 +33,29 @@
     <Property Id="ARPPRODUCTICON" Value="DirectOutputIcon" />
     <Icon Id="DirectOutputIcon" SourceFile="DirectOutput\DirectOutputIcon_32.ico" />
     
-    <!-- Enable folder chooser using correct MSI property binding -->
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-    
     <!-- Enable basic Windows Installer UI with directory selection -->
     <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
     <Property Id="ALLUSERS" Value="2" />
     <Property Id="MSIINSTALLPERUSER" Value="1" />
     
-    <!-- Add required WiX variables -->
-    <WixVariable Id="WixUICostingPopupOptOut" Value="1" />
-    <WixVariable Id="WixUILicenseRtf" Value="LICENSE" />
-    <WixVariable Id="WixUIBannerBmp" Value="DirectOutput\DirectOutputIcon_32.ico" />
-    <WixVariable Id="WixUIDialogBmp" Value="DirectOutput\DirectOutputIcon_32.ico" />
+    <!-- Enable directory customization via MSI properties -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
-    <!-- Custom UI with folder browse capability and DirectOutput branding -->
+    <!-- Add required WiX variables -->
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE" />
+    <WixVariable Id="WixUIBannerBmp" Value="DOFSetup\Res\Banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="DOFSetup\Res\DialogSide.bmp" />
+    
+    <!-- Use reliable WiX Common UI with directory customization support -->
+    <UIRef Id="WixUI_Common" />
+    
+    <!-- Simple UI enhancement for directory selection -->
     <UI>
-      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
-      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
-      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
-      
-      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
-      <Property Id="WixUI_Mode" Value="InstallDir" />
-      
-      <!-- Reference standard dialogs -->
+      <!-- Add directory browse capability -->
       <DialogRef Id="BrowseDlg" />
-      <DialogRef Id="DiskCostDlg" />
-      <DialogRef Id="ErrorDlg" />
-      <DialogRef Id="FatalError" />
-      <DialogRef Id="FilesInUse" />
-      <DialogRef Id="MsiRMFilesInUse" />
-      <DialogRef Id="PrepareDlg" />
-      <DialogRef Id="ProgressDlg" />
-      <DialogRef Id="ResumeDlg" />
-      <DialogRef Id="UserExit" />
       
-      <!-- Welcome and Install Directory dialogs -->
-      <DialogRef Id="WelcomeDlg" />
-      <DialogRef Id="InstallDirDlg" />
-      <DialogRef Id="VerifyReadyDlg" />
-      
-      <!-- Dialog flow with proper directory handling -->
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
-      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[INSTALLFOLDER]" Order="1" />
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="2" />
-      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[INSTALLFOLDER]" Order="1" />
-      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1" Condition="NOT Installed" />
-      <Publish Dialog="BrowseDlg" Control="OK" Event="SetTargetPath" Value="[_BrowseProperty]" Order="1" />
-      <Publish Dialog="BrowseDlg" Control="OK" Property="INSTALLFOLDER" Value="[_BrowseProperty]" Order="2" />
+      <!-- Enable command-line directory override -->
+      <Property Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" />
     </UI>
     
     <Feature Id="ProductFeature" Title="DirectOutput" Level="1">
