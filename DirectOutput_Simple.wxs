@@ -20,12 +20,24 @@
   <Package Name="$(var.msiProductName)" Language="1033" Version="3.2.9407.22473" Manufacturer="DirectOutput" UpgradeCode="$(var.msiUpgradeCode)" InstallerVersion="200" Scope="perUser">
     <SummaryInformation Keywords="Installer" Description="DirectOutput $(var.msiBitness)-bit Framework" Manufacturer="DirectOutput" />
     
-    <!-- Retrieve the old install folder from the registry, if set -->
+    <!-- Retrieve the old install folder from the registry, if set (per-user only) -->
     <Property Id="INSTALLFOLDER" Value="C:\DirectOutput">
       <RegistrySearch Id="InstallFolder" Type="raw" Root="HKCU" Key="SOFTWARE\DirectOutput\DirectOutput" Name="InstallPath" />
     </Property>
     
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <!-- Standard upgrade handling for per-user installations -->
+    <MajorUpgrade 
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed." 
+      AllowSameVersionUpgrades="yes"
+      RemoveFeatures="ALL" />
+    
+    <!-- Ensure we can upgrade from any previous version with same upgrade code -->
+    <Upgrade Id="$(var.msiUpgradeCode)">
+      <UpgradeVersion Minimum="1.0.0.0" Maximum="3.2.9407.22473" 
+                      IncludeMinimum="yes" IncludeMaximum="no" 
+                      Property="PREVIOUSVERSIONSINSTALLED" 
+                      MigrateFeatures="yes" />
+    </Upgrade>
     
     <MediaTemplate EmbedCab="yes" />
     
@@ -35,19 +47,20 @@
     
     <!-- Enable basic Windows Installer UI with directory selection -->
     <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
-    <Property Id="ALLUSERS" Value="2" />
-    <Property Id="MSIINSTALLPERUSER" Value="1" />
     
-    <!-- Enable directory customization via MSI properties -->
+    <!-- Custom UI with embedded bitmaps -->
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
-    <!-- Add required WiX variables -->
+    <!-- WiX UI customization variables -->
     <WixVariable Id="WixUICostingPopupOptOut" Value="1" Overridable="yes" />
-    <WixVariable Id="WixUILicenseRtf" Value="LICENSE" />
+    <WixVariable Id="WixUILicenseRtf" Value="DOFSetup\Res\DOFLicense.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="DOFSetup\Res\Banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="DOFSetup\Res\DialogSide.bmp" />
     
-    <!-- Custom UI with working folder browse capability -->
+    <!-- Embed bitmap resources directly -->
+    <Binary Id="WixUIBannerBmp" SourceFile="DOFSetup\Res\Banner.bmp" />
+    <Binary Id="WixUIDialogBmp" SourceFile="DOFSetup\Res\DialogSide.bmp" />
+    
     <UI>
       <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
       <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
@@ -100,8 +113,8 @@
     <CustomAction Id="PBXFixup" Return="check" Execute="deferred" DllEntry="PBXFixup" Impersonate="yes" BinaryRef="PBXFixupDLL" />
     
     <!-- Property setters for custom actions -->
-    <CustomAction Id="SetB2SVars" Return="check" Property="B2SFixup" Value="INSTALLEDPATH=[INSTALLFOLDER];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
-    <CustomAction Id="SetPBXVars" Return="check" Property="PBXFixup" Value="INSTALLEDPATH=[INSTALLFOLDER];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
+    <CustomAction Id="SetB2SVars" Return="check" Property="B2SFixup" Value="INSTALLEDPATH=[DOFDIR];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
+    <CustomAction Id="SetPBXVars" Return="check" Property="PBXFixup" Value="INSTALLEDPATH=[DOFDIR];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
 
     <!-- Custom action execution sequence -->
     <InstallExecuteSequence>
@@ -116,11 +129,13 @@
     <!-- Install to user-selected folder with x86/x64 subdirectories for coexistence -->
     <Directory Id="WINDOWSVOLUME">
       <Directory Id="INSTALLFOLDER">
-        <!-- Platform-specific subdirectory for executables -->
-        <Directory Id="BINDIR" Name="$(var.BinDirName)" />
-        <!-- Shared configuration directory -->
-        <Directory Id="DOFCONFIGDIR" Name="Config">
-          <Directory Id="DOFCONFIGEXAMPLESDIR" Name="Examples" />
+        <Directory Id="DOFDIR">
+          <!-- Platform-specific subdirectory for executables -->
+          <Directory Id="BINDIR" Name="$(var.BinDirName)" />
+          <!-- Configuration directory -->
+          <Directory Id="DOFCONFIGDIR" Name="Config">
+            <Directory Id="DOFCONFIGEXAMPLESDIR" Name="Examples" />
+          </Directory>
         </Directory>
       </Directory>
     </Directory>
@@ -128,43 +143,22 @@
 
   <Fragment>
     <ComponentGroup Id="ProductComponents">
-      <!-- Platform-specific executables in subdirectory (x86 or x64) -->
+      <!-- Core DirectOutput DLL in platform subdirectory (BinFiles) -->
       <Component Id="DirectOutputDll" Directory="BINDIR" Guid="*">
         <File Id="DirectOutputDll" Source="bin\$(var.Platform)\Release\DirectOutput.dll" KeyPath="yes" />
       </Component>
       
-      <Component Id="DirectOutputConfig" Directory="BINDIR" Guid="*">
-        <File Id="DirectOutputConfig" Source="bin\$(var.Platform)\Release\DirectOutput.dll.config" KeyPath="yes" />
+      <!-- Configuration files in Config folder (SampleConfigFiles) -->
+      <Component Id="CabinetXml" Directory="DOFCONFIGDIR" Guid="*">
+        <File Id="CabinetXml" Source="config\examples\Cabinet.xml" KeyPath="yes" />
       </Component>
       
-      <Component Id="ExtensionsDll" Directory="BINDIR" Guid="*">
-        <File Id="ExtensionsDll" Source="bin\$(var.Platform)\Release\Extensions.dll" KeyPath="yes" />
+      <Component Id="GlobalConfigB2S" Directory="DOFCONFIGDIR" Guid="*">
+        <File Id="GlobalConfigB2S" Source="config\examples\GlobalConfig_B2SServer.xml" KeyPath="yes" />
       </Component>
       
-      <!-- B2S Server Plugin in platform directory -->
-      <Component Id="B2SServerPluginDll" Directory="BINDIR" Guid="*">
-        <File Id="B2SServerPluginDll" Source="bin\$(var.Platform)\Release\B2SServerDirectOutputPlugin.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="B2SServerPluginConfig" Directory="BINDIR" Guid="*">
-        <File Id="B2SServerPluginConfig" Source="bin\$(var.Platform)\Release\B2SServerDirectOutputPlugin.dll.config" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="B2SServerPluginInterface" Directory="BINDIR" Guid="*">
-        <File Id="B2SServerPluginInterface" Source="bin\$(var.Platform)\Release\B2SServerPluginInterface.dll" KeyPath="yes" />
-      </Component>
-      
-      <!-- PinballX Plugin in platform directory -->
-      <Component Id="PinballXPluginDll" Directory="BINDIR" Guid="*">
-        <File Id="PinballXPluginDll" Source="bin\$(var.Platform)\Release\DirectOutput PinballX Plugin.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="PinballXPluginConfig" Directory="BINDIR" Guid="*">
-        <File Id="PinballXPluginConfig" Source="bin\$(var.Platform)\Release\DirectOutput PinballX Plugin.dll.config" KeyPath="yes" />
-      </Component>
-      
-      <!-- COM Object in platform directory -->
-      <Component Id="ComObjectDll" Directory="BINDIR" Guid="*">
+      <!-- COM Object files in root DirectOutput folder -->
+      <Component Id="ComObjectDll" Directory="DOFDIR" Guid="*">
         <File Id="ComObjectDll" Source="bin\$(var.Platform)\Release\DirectOutputComObject.dll" KeyPath="yes" />
         <RegistryKey Root="HKCR" Key="CLSID\{A23BFDBC-9A8A-46C0-8672-60F23D54FFB6}">
           <RegistryValue Type="string" Value="DirectOutput COM Object" />
@@ -175,102 +169,60 @@
         </RegistryKey>
       </Component>
       
-      <Component Id="ComObjectConfig" Directory="BINDIR" Guid="*">
-        <File Id="ComObjectConfig" Source="bin\$(var.Platform)\Release\DirectOutputComObject.dll.config" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="ComObjectTlb" Directory="BINDIR" Guid="*">
+      <Component Id="ComObjectTlb" Directory="DOFDIR" Guid="*">
         <File Id="ComObjectTlb" Source="bin\$(var.Platform)\Release\DirectOutputComObject.tlb" KeyPath="yes" />
       </Component>
       
-      <!-- Tools in platform directory -->
-      <Component Id="ConfigTesterExe" Directory="BINDIR" Guid="*">
-        <File Id="ConfigTesterExe" Source="bin\$(var.Platform)\Release\DirectOutputConfigTester.exe" KeyPath="yes" />
+      <!-- Resources in root DirectOutput folder (DofFiles) -->
+      <Component Id="DirectOutputShapesPng" Directory="DOFDIR" Guid="*">
+        <File Id="DirectOutputShapesPng" Source="bin\$(var.Platform)\Release\DirectOutputShapes.png" KeyPath="yes" />
       </Component>
       
-      <Component Id="ConfigTesterConfig" Directory="BINDIR" Guid="*">
-        <File Id="ConfigTesterConfig" Source="bin\$(var.Platform)\Release\DirectOutputConfigTester.exe.config" KeyPath="yes" />
+      <Component Id="DirectOutputShapesXml" Directory="DOFDIR" Guid="*">
+        <File Id="DirectOutputShapesXml" Source="bin\$(var.Platform)\Release\DirectOutputShapes.xml" KeyPath="yes" />
+      </Component>
+      
+      <!-- License in root DirectOutput folder (DofFiles) -->
+      <Component Id="LicenseFile" Directory="DOFDIR" Guid="*">
+        <File Id="LicenseFile" Source="LICENSE" KeyPath="yes" />
+      </Component>
+      
+      <!-- B2S Server Plugin in platform subdirectory (BinFiles) -->
+      <Component Id="B2SServerPluginDll" Directory="BINDIR" Guid="*">
+        <File Id="B2SServerPluginDll" Source="bin\$(var.Platform)\Release\B2SServerDirectOutputPlugin.dll" KeyPath="yes" />
+      </Component>
+      
+      <!-- PinballX Plugin in platform subdirectory (BinFiles) -->
+      <Component Id="PinballXPluginDll" Directory="BINDIR" Guid="*">
+        <File Id="PinballXPluginDll" Source="bin\$(var.Platform)\Release\DirectOutput PinballX Plugin.dll" KeyPath="yes" />
+      </Component>
+      
+      <!-- Tools in platform subdirectory (BinFiles) -->
+      <Component Id="RegisterComObjectExe" Directory="BINDIR" Guid="*">
+        <File Id="RegisterComObjectExe" Source="bin\$(var.Platform)\Release\RegisterDirectOutputComObject.exe" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ConfigTesterExe" Directory="BINDIR" Guid="*">
+        <File Id="ConfigTesterExe" Source="bin\$(var.Platform)\Release\DirectOutputConfigTester.exe" KeyPath="yes" />
       </Component>
       
       <Component Id="GlobalConfigEditorExe" Directory="BINDIR" Guid="*">
         <File Id="GlobalConfigEditorExe" Source="bin\$(var.Platform)\Release\GlobalConfigEditor.exe" KeyPath="yes" />
       </Component>
       
-      <Component Id="GlobalConfigEditorConfig" Directory="BINDIR" Guid="*">
-        <File Id="GlobalConfigEditorConfig" Source="bin\$(var.Platform)\Release\GlobalConfigEditor.exe.config" KeyPath="yes" />
-      </Component>
-      
       <Component Id="LedControlFileTesterExe" Directory="BINDIR" Guid="*">
         <File Id="LedControlFileTesterExe" Source="bin\$(var.Platform)\Release\LedControlFileTester.exe" KeyPath="yes" />
       </Component>
       
-      <Component Id="LedControlFileTesterConfig" Directory="BINDIR" Guid="*">
-        <File Id="LedControlFileTesterConfig" Source="bin\$(var.Platform)\Release\LedControlFileTester.exe.config" KeyPath="yes" />
-      </Component>
-
-      <!-- Shared DirectOutput.dll and Extensions.dll in root for backwards compatibility -->
-      <Component Id="SharedDirectOutputDll" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="SharedDirectOutputDll" Source="bin\$(var.Platform)\Release\DirectOutput.dll" />
-      </Component>
-      
-      <Component Id="SharedExtensionsDll" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="SharedExtensionsDll" Source="bin\$(var.Platform)\Release\Extensions.dll" />
+      <Component Id="DOFSlaveExe" Directory="BINDIR" Guid="*">
+        <File Id="DOFSlaveExe" Source="bin\$(var.Platform)\Release\DOFSlave.exe" KeyPath="yes" />
       </Component>
       
       <!-- Registry entry to save install path -->
-      <Component Id="RegistryEntries" Directory="INSTALLFOLDER" Guid="*">
+      <Component Id="RegistryEntries" Directory="DOFDIR" Guid="*">
         <RegistryKey Root="HKCU" Key="SOFTWARE\DirectOutput\DirectOutput">
-          <RegistryValue Type="string" Name="InstallPath" Value="[INSTALLFOLDER]" KeyPath="yes" />
+          <RegistryValue Type="string" Name="InstallPath" Value="[DOFDIR]" KeyPath="yes" />
         </RegistryKey>
-      </Component>
-      
-      <!-- Dependencies -->
-      <Component Id="NewtonsoftJson" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="NewtonsoftJson" Source="bin\$(var.Platform)\Release\Newtonsoft.Json.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="CilociFleeLib" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="CilociFleeLib" Source="bin\$(var.Platform)\Release\Ciloci.Flee.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="ManagedBass" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="ManagedBass" Source="bin\$(var.Platform)\Release\ManagedBass.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="ManagedBassFx" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="ManagedBassFx" Source="bin\$(var.Platform)\Release\ManagedBass.Fx.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="ManagedBassMix" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="ManagedBassMix" Source="bin\$(var.Platform)\Release\ManagedBass.Mix.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="HueApiLib" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="HueApiLib" Source="bin\$(var.Platform)\Release\Q42.HueApi.dll" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="HueApiColorConverters" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="HueApiColorConverters" Source="bin\$(var.Platform)\Release\Q42.HueApi.ColorConverters.dll" KeyPath="yes" />
-      </Component>
-      
-      <!-- LedWiz DLL - architecture specific -->
-      <?if $(var.Platform)=x64 ?>
-      <Component Id="LedWizDll" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="LedWizDll" Source="bin\$(var.Platform)\Release\ledwiz64.dll" KeyPath="yes" />
-      </Component>
-      <?else?>
-      <Component Id="LedWizDll" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="LedWizDll" Source="DirectOutput\ledwiz32.dll" KeyPath="yes" />
-      </Component>
-      <?endif?>
-      
-      <!-- Resources -->
-      <Component Id="DirectOutputShapesPng" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="DirectOutputShapesPng" Source="bin\$(var.Platform)\Release\DirectOutputShapes.png" KeyPath="yes" />
-      </Component>
-      
-      <Component Id="DirectOutputShapesXml" Directory="INSTALLFOLDER" Guid="*">
-        <File Id="DirectOutputShapesXml" Source="bin\$(var.Platform)\Release\DirectOutputShapes.xml" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>
