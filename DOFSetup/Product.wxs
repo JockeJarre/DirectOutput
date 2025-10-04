@@ -218,6 +218,71 @@
         <File Id="DOFSlaveExe" Source="..\bin\$(var.Platform)\Release\DOFSlave.exe" KeyPath="yes" />
       </Component>
       
+      <!-- Dependency DLLs in platform subdirectory (BinFiles) -->
+      <Component Id="NewtonsoftJsonDll" Directory="BINDIR" Guid="*">
+        <File Id="NewtonsoftJsonDll" Source="..\bin\$(var.Platform)\Release\Newtonsoft.Json.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ManagedBassDll" Directory="BINDIR" Guid="*">
+        <File Id="ManagedBassDll" Source="..\bin\$(var.Platform)\Release\ManagedBass.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ManagedBassFxDll" Directory="BINDIR" Guid="*">
+        <File Id="ManagedBassFxDll" Source="..\bin\$(var.Platform)\Release\ManagedBass.Fx.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ManagedBassMixDll" Directory="BINDIR" Guid="*">
+        <File Id="ManagedBassMixDll" Source="..\bin\$(var.Platform)\Release\ManagedBass.Mix.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="CilociFleeeDll" Directory="BINDIR" Guid="*">
+        <File Id="CilociFleeeDll" Source="..\bin\$(var.Platform)\Release\Ciloci.Flee.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="Q42HueApiDll" Directory="BINDIR" Guid="*">
+        <File Id="Q42HueApiDll" Source="..\bin\$(var.Platform)\Release\Q42.HueApi.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="Q42HueApiColorConvertersDll" Directory="BINDIR" Guid="*">
+        <File Id="Q42HueApiColorConvertersDll" Source="..\bin\$(var.Platform)\Release\Q42.HueApi.ColorConverters.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="LedWizDll" Directory="BINDIR" Guid="*">
+        <File Id="LedWizDll" Source="..\DirectOutput\ledwiz$(var.msiBitness).dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ProPinballBridgeDll" Directory="BINDIR" Guid="*">
+        <File Id="ProPinballBridgeDll" Source="..\bin\$(var.Platform)\Release\ProPinballBridge.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ExtensionsDll" Directory="BINDIR" Guid="*">
+        <File Id="ExtensionsDll" Source="..\bin\$(var.Platform)\Release\Extensions.dll" KeyPath="yes" />
+      </Component>
+      
+      <!-- Platform-specific native DLLs -->
+      <Component Id="PacDriveDll" Directory="BINDIR" Guid="*">
+        <File Id="PacDriveDll" Source="..\DirectOutput\Costura$(var.msiBitness)\PacDrive$(var.msiBitness).dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="FTD2XXDll" Directory="BINDIR" Guid="*">
+        <File Id="FTD2XXDll" Source="..\DirectOutput\Costura$(var.msiBitness)\FTD2XX$(var.msiBitness).dll" KeyPath="yes" />
+      </Component>
+      
+      <!-- Bass audio DLLs (only for x86) -->
+      <?if $(var.Platform) = x86 ?>
+      <Component Id="BassDll" Directory="BINDIR" Guid="*">
+        <File Id="BassDll" Source="..\DirectOutput\Costura32\Bass.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="BassMixDll" Directory="BINDIR" Guid="*">
+        <File Id="BassMixDll" Source="..\DirectOutput\Costura32\bassmix.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="BassFxDll" Directory="BINDIR" Guid="*">
+        <File Id="BassFxDll" Source="..\DirectOutput\Costura32\bass_fx.dll" KeyPath="yes" />
+      </Component>
+      <?endif?>
+      
       <!-- Registry entry to save install path -->
       <Component Id="RegistryEntries" Directory="DOFDIR" Guid="*">
         <RegistryKey Root="HKCU" Key="SOFTWARE\DirectOutput\DirectOutput">
