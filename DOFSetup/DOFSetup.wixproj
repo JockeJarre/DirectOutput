@@ -63,16 +63,22 @@
           ContinueOnError="true"
           IgnoreExitCode="true" />
     
-    <!-- Build with UI extension (try absolute path first for CI, then extension name) -->
-    <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext C:\wix-extensions\WixToolset.UI.wixext.dll -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
+    <!-- Check for CI environment extension -->
+    <PropertyGroup>
+      <CIExtensionPath>C:\wix-extensions\WixToolset.UI.wixext.dll</CIExtensionPath>
+      <UseAbsolutePath Condition="Exists('$(CIExtensionPath)')">true</UseAbsolutePath>
+    </PropertyGroup>
     
-    <!-- If absolute path failed, try with extension name (works locally) -->
+    <Message Text="CI Extension Path Exists: $(UseAbsolutePath)" Importance="high" />
+    
+    <!-- Build with UI extension - use absolute path if in CI, otherwise extension name -->
+    <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext &quot;$(CIExtensionPath)&quot; -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="'$(UseAbsolutePath)' == 'true'" />
+    
     <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext WixToolset.UI.wixext -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
           WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="!Exists('$(OutputPath)$(OutputName).msi')" />
+          Condition="'$(UseAbsolutePath)' != 'true'" />
   </Target>
   
   <!-- Clean target -->

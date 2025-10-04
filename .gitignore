@@ -115,3 +115,29 @@ UpgradeLog*.XML
 
 # omit generated files
 DOFSetup/Generated/*
+
+# WiX specific files
+*.wixpdb
+*.wixobj
+*.msi
+*.msm
+*.msp
+
+# Backup files
+*.bak
+*.backup
+
+# Local WiX extensions (should be downloaded/installed, not committed)
+.wix/
+
+# Executables and compiled binaries
+*.exe
+*.dll
+
+# Local scripts and tools (typically temporary)
+Install_*.bat
+Cleanup*.ps1
+cleanup_*.bat
+
+# Original/reference files (should be documented elsewhere)
+Original/
