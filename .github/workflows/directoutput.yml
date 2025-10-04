@@ -82,34 +82,41 @@ jobs:
           Write-Host "Installing WiX Toolset v6.0 as .NET global tool..."
           dotnet tool install --global wix --version 6.0.2
           
-          # Install WiX UI extension package
-          Write-Host "Installing WiX UI extension NuGet package..."  
-          dotnet tool install --global WixToolset.UI.wixext --version 6.0.2
+          # Download WiX UI extension NuGet package manually and extract
+          Write-Host "Downloading WiX UI extension package..."
+          $uiExtUrl = "https://www.nuget.org/api/v2/package/WixToolset.UI.wixext/6.0.2"
+          $uiExtZip = "WixToolset.UI.wixext.6.0.2.nupkg"
+          Invoke-WebRequest -Uri $uiExtUrl -OutFile $uiExtZip
           
-          # Alternative method: Add extension to global config
-          Write-Host "Adding WiX UI extension to global configuration..."
-          wix extension add WixToolset.UI.wixext --global
+          # Extract the package
+          Write-Host "Extracting WiX UI extension..."
+          Expand-Archive -Path $uiExtZip -DestinationPath "wix-ui-ext" -Force
           
-          # Fallback: Try installing via NuGet package manager
-          Write-Host "Fallback: Installing WiX UI extension via NuGet..."
-          dotnet add package WixToolset.UI.wixext --version 6.0.2 | Out-Null
+          # Find the extension DLL
+          $uiExtDll = Get-ChildItem -Path "wix-ui-ext" -Recurse -Filter "WixToolset.UI.wixext.dll" | Select-Object -First 1
+          if ($uiExtDll) {
+            Write-Host "✅ Found WiX UI extension: $($uiExtDll.FullName)"
+            
+            # Copy to a standard location
+            $globalExtDir = "C:\wix-extensions"
+            New-Item -ItemType Directory -Force -Path $globalExtDir
+            Copy-Item $uiExtDll.FullName "$globalExtDir\WixToolset.UI.wixext.dll"
+            Write-Host "✅ WiX UI extension installed to: $globalExtDir\WixToolset.UI.wixext.dll"
+            
+            # Add to PATH for wix to find it
+            $env:PATH += ";$globalExtDir"
+            echo "PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          } else {
+            Write-Warning "WiX UI extension DLL not found in package"
+          }
           
-          # Verify installation
+          # Clean up
+          Remove-Item $uiExtZip -Force -ErrorAction SilentlyContinue
+          Remove-Item "wix-ui-ext" -Recurse -Force -ErrorAction SilentlyContinue
+          
+          # Verify WiX installation
           Write-Host "Verifying WiX installation..."
           wix --version
-          
-          # List installed extensions
-          Write-Host "Listing WiX extensions..."
-          wix extension list
-          
-          # Test extension availability
-          Write-Host "Testing WiX UI extension availability..."
-          wix build --help | Select-String "WixToolset.UI" -Quiet
-          if ($?) {
-            Write-Host "✅ WiX UI extension detected"
-          } else {
-            Write-Host "⚠️ WiX UI extension may not be available"
-          }
           
           Write-Host "✅ WiX 6 installation completed successfully"
 

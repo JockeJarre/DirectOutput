@@ -44,35 +44,13 @@
   </ItemGroup>
   
   <!-- Custom build target using wix build directly -->
-  <Target Name="Build">
+  <Target Name="Build" DependsOnTargets="ResolveProjectReferences">
     <MakeDir Directories="$(OutputPath)" />
     <MakeDir Directories="$(IntermediateOutputPath)" />
     
     <Message Text="Building WiX installer for $(Platform) $(Configuration)..." Importance="high" />
-    <Message Text="WiX Architecture: $(WixArch)" Importance="high" />
-    <Message Text="Working Directory: $(MSBuildProjectDirectory)" Importance="high" />
-    <Message Text="Output Path: $(OutputPath)$(OutputName).msi" Importance="high" />
-    
-    <!-- Check if wix.exe is available -->
-    <Exec Command="wix --version" 
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
-    
-    <!-- List available WiX extensions -->
-    <Exec Command="wix extension list" 
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
-    
-    <!-- Build with UI extension (try absolute path first for CI, then extension name) -->
-    <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext C:\wix-extensions\WixToolset.UI.wixext.dll -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
-    
-    <!-- If absolute path failed, try with extension name (works locally) -->
     <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext WixToolset.UI.wixext -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="!Exists('$(OutputPath)$(OutputName).msi')" />
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
   
   <!-- Clean target -->
