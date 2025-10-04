@@ -15,16 +15,18 @@ namespace DOFSetupB2SFixup
         [CustomAction]
         public static ActionResult B2SFixup(Session session)
         {
-            session.Log("Begin B2S -> DOF connection setup");
+            try
+            {
+                session.Log("Begin B2S -> DOF connection setup");
 
-            // No errors yet
-            List<String> errors = new List<String>();
+                // No errors yet
+                List<String> errors = new List<String>();
 
-            // Get the DirectOutput install location.  
-            String dofPath = session.CustomActionData["INSTALLEDPATH"];
-            String binDir = session.CustomActionData["BINDIR"];
-            String bitness = session.CustomActionData["BITNESS"];
-            session.Log("Installation path: " + dofPath + ", binary dir: " + binDir + ", bitness=" + bitness);
+                // Get the DirectOutput install location.  
+                String dofPath = session.CustomActionData["INSTALLEDPATH"];
+                String binDir = session.CustomActionData["BINDIR"];
+                String bitness = session.CustomActionData["BITNESS"];
+                session.Log("Installation path: " + dofPath + ", binary dir: " + binDir + ", bitness=" + bitness);
 
 			// Try load the registered B2S.Server COM object, so that we can
 			// ask it for its install location.
@@ -238,6 +240,14 @@ namespace DOFSetupB2SFixup
             }
 
             return ActionResult.Success;
+            }
+            catch (Exception ex)
+            {
+                session.Log("B2SFixup custom action failed: " + ex.Message);
+                session.Log("Stack trace: " + ex.StackTrace);
+                // Don't fail the installation for B2S integration issues
+                return ActionResult.Success;
+            }
         }
     }
 }

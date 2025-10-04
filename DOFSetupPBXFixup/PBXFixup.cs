@@ -16,16 +16,18 @@ namespace DOFSetupPBXFixup
         [CustomAction]
         public static ActionResult PBXFixup(Session session)
         {
-            session.Log("Begin PinballX -> DOF connection setup");
+            try
+            {
+                session.Log("Begin PinballX -> DOF connection setup");
 
-            // No errors yet
-            List<String> errors = new List<string>();
+                // No errors yet
+                List<String> errors = new List<string>();
 
-            // Get the DirectOutput install location.  
-            String dofPath = session.CustomActionData["INSTALLEDPATH"];
-			String binDir = session.CustomActionData["BINDIR"];
-			String bitness = session.CustomActionData["BITNESS"];
-			session.Log("Installation path: " + dofPath + ", binary dir: " + binDir + ", bitness=" + bitness);
+                // Get the DirectOutput install location.  
+                String dofPath = session.CustomActionData["INSTALLEDPATH"];
+                String binDir = session.CustomActionData["BINDIR"];
+                String bitness = session.CustomActionData["BITNESS"];
+                session.Log("Installation path: " + dofPath + ", binary dir: " + binDir + ", bitness=" + bitness);
 
 			// Find PinballX's install location by searching for its uninstall key
 			String pbxPath = null;
@@ -262,12 +264,19 @@ namespace DOFSetupPBXFixup
 					msg += padding + err;
 					padding = "\r\n\r\n";
 				}
-
                 session.Message(InstallMessage.Error, new Record { FormatString = msg });
             }
 
             // done
             return ActionResult.Success;
+            }
+            catch (Exception ex)
+            {
+                session.Log("PBXFixup custom action failed: " + ex.Message);
+                session.Log("Stack trace: " + ex.StackTrace);
+                // Don't fail the installation for PinballX integration issues
+                return ActionResult.Success;
+            }
         }
     }
 }
