@@ -49,6 +49,21 @@
     <MakeDir Directories="$(IntermediateOutputPath)" />
     
     <Message Text="Building WiX installer for $(Platform) $(Configuration)..." Importance="high" />
+    <Message Text="WiX Architecture: $(WixArch)" Importance="high" />
+    <Message Text="Working Directory: $(MSBuildProjectDirectory)" Importance="high" />
+    <Message Text="Output Path: $(OutputPath)$(OutputName).msi" Importance="high" />
+    
+    <!-- Check if wix.exe is available -->
+    <Exec Command="wix --version" 
+          ContinueOnError="true"
+          IgnoreExitCode="true" />
+    
+    <!-- List available WiX extensions -->
+    <Exec Command="wix extension list" 
+          ContinueOnError="true"
+          IgnoreExitCode="true" />
+    
+    <!-- Build with UI extension -->
     <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext WixToolset.UI.wixext -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
           WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
