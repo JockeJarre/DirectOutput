@@ -98,7 +98,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProPinballSlave", "ProPinba
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssemblyInfo", "AssemblyInfo\AssemblyInfo.csproj", "{B153E2F0-22E6-445D-9B54-540C6AB85AF9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DOFSetup_WiX6", "DOFSetup\DOFSetup_WiX6_Simple.wixproj", "{2177CE8A-5172-47A6-A1EA-D0D930EF1613}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DOFSetup", "DOFSetup\DOFSetup.wixproj", "{2177CE8A-5172-47A6-A1EA-D0D930EF1613}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

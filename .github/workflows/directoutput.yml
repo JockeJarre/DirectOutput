@@ -213,43 +213,23 @@ jobs:
           Write-Host "✅ x64 build completed successfully"
           
           Write-Host "✅ All builds completed successfully (x86 and x64)"
-
-      - name: Build WiX 6 MSI Installers
-        run: |
-          Write-Host ">>> Building WiX 6 MSI Installers"
           
-          # Build x86 MSI
-          Write-Host "Building x86 MSI installer..."
-          wix build -arch x86 -d Platform=x86 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x86\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
-          if ($LASTEXITCODE -ne 0) { 
-            Write-Error "x86 MSI build failed"
-            exit $LASTEXITCODE 
-          }
-          Write-Host "✅ x86 MSI completed successfully"
+          # Verify MSI files were created by MSBuild integration
+          Write-Host ">>> Verifying WiX MSI Installers (built via MSBuild)"
           
-          # Build x64 MSI  
-          Write-Host "Building x64 MSI installer..."
-          wix build -arch x64 -d Platform=x64 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x64\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
-          if ($LASTEXITCODE -ne 0) { 
-            Write-Error "x64 MSI build failed"
-            exit $LASTEXITCODE 
-          }
-          Write-Host "✅ x64 MSI completed successfully"
-          
-          # Verify MSI files were created
           if (Test-Path "DOFSetup\bin\x86\Release\DOFSetup.msi") {
             $size = (Get-Item "DOFSetup\bin\x86\Release\DOFSetup.msi").Length
-            Write-Host "✅ DOFSetup x86 MSI created ($([math]::Round($size/1MB,2)) MB)"
+            Write-Host "✅ DOFSetup x86 MSI created via MSBuild ($([math]::Round($size/1MB,2)) MB)"
           } else {
-            Write-Error "DOFSetup x86 MSI was not created"
+            Write-Error "DOFSetup x86 MSI was not created by MSBuild"
             exit 1
           }
           
           if (Test-Path "DOFSetup\bin\x64\Release\DOFSetup.msi") {
             $size = (Get-Item "DOFSetup\bin\x64\Release\DOFSetup.msi").Length  
-            Write-Host "✅ DOFSetup x64 MSI created ($([math]::Round($size/1MB,2)) MB)"
+            Write-Host "✅ DOFSetup x64 MSI created via MSBuild ($([math]::Round($size/1MB,2)) MB)"
           } else {
-            Write-Error "DOFSetup x64 MSI was not created"
+            Write-Error "DOFSetup x64 MSI was not created by MSBuild"
             exit 1
           }
 
