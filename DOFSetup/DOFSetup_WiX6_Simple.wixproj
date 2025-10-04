@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <PlatformTarget>x86</PlatformTarget>
     <TargetFramework>net48</TargetFramework>
     <OutputName>DOFSetup</OutputName>
-    <SuppressIces>ICE57;ICE61</SuppressIces>
+    <SuppressIces>ICE17;ICE20;ICE48;ICE57;ICE61</SuppressIces>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <!-- Platform-specific configurations -->
@@ -26,12 +26,9 @@
     <DefineConstants>Debug</DefineConstants>
   </PropertyGroup>
 
-  <!-- WiX source files -->
+  <!-- WiX source files - explicit include only -->
   <ItemGroup>
     <Compile Include="Product_WiX6.wxs" />
-    <!-- TODO: Regenerate COM object registration files with WiX 6 Heat tool -->
-    <!-- <Compile Include="Generated\RegisterDirectOutputComObjectDll.wxs" /> -->
-    <!-- <Compile Include="Generated\RegisterDirectOutputComObjectTlb.wxs" /> -->
   </ItemGroup>
 
   <!-- Project references for file harvesting -->

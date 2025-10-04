@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Centralized platform-specific variables and constants for DirectOutput WiX authoring -->
+<?if $(var.Platform)=x64 ?>
+  <?define msiUpgradeCode = "A7EAB3EB-6524-4173-B5D8-25FC867BD29E" ?>
+  <?define msiProductName = "DirectOutput64" ?>
+  <?define msiBitness = "64" ?>
+  <?define Win64 = "yes" ?>
+  <?define BinDirName = "x64" ?>
+<?else?>
+  <?define msiUpgradeCode = "94E0D0EE-C078-42C6-AD9F-4030B329A040" ?>
+  <?define msiProductName = "DirectOutput32" ?>
+  <?define msiBitness = "32" ?>
+  <?define Win64 = "no" ?>
+  <?define BinDirName = "x86" ?>
+<?endif?>
+
+<?define DOFCOMObjectGUID = "A23BFDBC-9A8A-46C0-8672-60F23D54FFB6" ?>

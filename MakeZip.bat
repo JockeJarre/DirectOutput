@@ -55,8 +55,7 @@ set DofDllPath=bin\%1\%2
 rem ###   Zip file path
 set ZipPath=Builds
 
-rem ###   MSI setup output
-set MSIPath=DOFSetup\bin\%1\%2
+rem ###   WiX 6 MSI files are now in DOFSetup\bin\{platform}\Release\DOFSetup.msi
 
 rem ===========================================================
 rem ###   Date/time to embed in zip file name
@@ -95,8 +94,8 @@ rem ###   Add DOF config example files
 zip "%ZipFile%" config\examples\*.xml
 
 
-rem ###   Copy MSI setup to build folder
-copy "%MSIPath%\DOFSetup.msi" "%ZipPath%\DirectOutput-%3-%1-%2-%CurrDate%.msi"
+rem ###   Copy WiX 6 MSI setup to build folder (updated for new WiX 6 installers)
+copy "DOFSetup\bin\%1\Release\DOFSetup.msi" "%ZipPath%\DirectOutput-%3-%1-%2-%CurrDate%.msi"
 
 echo.
 

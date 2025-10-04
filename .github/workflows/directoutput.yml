@@ -76,151 +76,21 @@ jobs:
           Write-Host "VSCMD_ARG_TGT_ARCH: $env:VSCMD_ARG_TGT_ARCH"
           Write-Host "WindowsSDKVersion: $env:WindowsSDKVersion"
 
-      - name: Install WiX Toolset v3.14
+      - name: Install WiX Toolset v6
         run: |
-          # Download and install WiX Toolset v3.14.0 command-line tools
-          Write-Host "Downloading WiX Toolset v3.14.0..."
-          try {
-            Invoke-WebRequest -Uri "https://github.com/wixtoolset/wix3/releases/download/wix314rtm/wix314.exe" -OutFile "wix314.exe" -UseBasicParsing
-            Write-Host "Downloaded WiX installer: $(Get-Item wix314.exe | Select-Object Name, Length)"
-          } catch {
-            Write-Error "Failed to download WiX installer: $($_.Exception.Message)"
-            exit 1
-          }
+          # Install WiX 6 .NET tool globally
+          Write-Host "Installing WiX Toolset v6.0 as .NET global tool..."
+          dotnet tool install --global wix --version 6.0.2
           
-          Write-Host "Installing WiX Toolset command-line tools..."
-          try {
-            $process = Start-Process -FilePath ".\wix314.exe" -ArgumentList "/quiet" -Wait -PassThru
-            Write-Host "WiX installer exit code: $($process.ExitCode)"
-            if ($process.ExitCode -ne 0) {
-              Write-Error "WiX installer failed with exit code: $($process.ExitCode)"
-              exit 1
-            }
-          } catch {
-            Write-Error "Failed to run WiX installer: $($_.Exception.Message)"
-            exit 1
-          }
+          # Add WiX UI extension
+          Write-Host "Installing WiX UI extension..."  
+          wix extension add WixToolset.UI.wixext
           
-          # Verify command-line tools installation
-          $wixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
-          if (Test-Path $wixPath) {
-            Write-Host "WiX Toolset command-line tools installed successfully at: $wixPath"
-            # Add WiX to PATH for this step and subsequent steps
-            echo "$wixPath" >> $env:GITHUB_PATH
-            # Also set environment variable that MSBuild looks for
-            echo "WIX=$($wixPath.Replace('\bin', ''))" >> $env:GITHUB_ENV
-            
-            # Verify key WiX tools are available
-            $tools = @("candle.exe", "light.exe", "heat.exe")
-            foreach ($tool in $tools) {
-              if (Test-Path "$wixPath\$tool") {
-                Write-Host "✅ Found $tool"
-              } else {
-                Write-Warning "⚠️ Missing $tool"
-              }
-            }
-          } else {
-            Write-Error "WiX Toolset command-line tools installation failed - path not found: $wixPath"
-            exit 1
-          }
+          # Verify installation
+          Write-Host "Verifying WiX installation..."
+          wix --version
           
-          # Install WiX v3 - Visual Studio 2022 Extension
-          Write-Host "Installing WiX v3 - Visual Studio 2022 Extension..."
-          
-          # Download the WiX VS2022 extension VSIX file
-          try {
-            $vsixUrl = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/WixToolset/vsextensions/WixToolsetVisualStudio2022Extension/1.0.0.22/vspackage"
-            $vsixPath = "WixToolsetVisualStudio2022Extension.vsix"
-            Invoke-WebRequest -Uri $vsixUrl -OutFile $vsixPath -UseBasicParsing
-            Write-Host "Downloaded WiX VS extension: $(Get-Item $vsixPath | Select-Object Name, Length)"
-          } catch {
-            Write-Warning "Failed to download WiX VS extension: $($_.Exception.Message)"
-            Write-Host "Continuing without VS extension - command-line tools should still work"
-            return
-          }
-          
-          # Install the VSIX extension using VSIXInstaller
-          $vsixInstaller = $null
-          
-          # First, let's see what VS installations are actually available
-          Write-Host "=== Searching for Visual Studio installations ==="
-          $vs2022Path = "${env:ProgramFiles}\Microsoft Visual Studio\2022"
-          $vs2022x86Path = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022"
-          
-          # Check both Program Files locations
-          $vsBasePaths = @($vs2022Path, $vs2022x86Path)
-          $vsEditions = @("Enterprise", "Professional", "Community", "BuildTools")
-          
-          foreach ($basePath in $vsBasePaths) {
-            if (Test-Path $basePath) {
-              Write-Host "Found VS base path: $basePath"
-              Get-ChildItem $basePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-                Write-Host "  Available edition: $($_.Name)"
-              }
-              
-              foreach ($edition in $vsEditions) {
-                $testPath = "$basePath\$edition\Common7\IDE\VSIXInstaller.exe"
-                if (Test-Path $testPath) {
-                  $vsixInstaller = $testPath
-                  Write-Host "✅ Found VSIXInstaller for $edition edition at: $testPath"
-                  break
-                }
-              }
-              if ($vsixInstaller) { break }
-            }
-          }
-          
-          # If still not found, try to use vswhere to locate VS
-          if (-not $vsixInstaller) {
-            $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-            if (Test-Path $vsWhere) {
-              Write-Host "Using vswhere to locate Visual Studio..."
-              $vsInstallations = & $vsWhere -products * -requires Microsoft.VisualStudio.Workload.MSBuildTools -format json | ConvertFrom-Json
-              foreach ($installation in $vsInstallations) {
-                $testPath = "$($installation.installationPath)\Common7\IDE\VSIXInstaller.exe"
-                if (Test-Path $testPath) {
-                  $vsixInstaller = $testPath
-                  Write-Host "✅ Found VSIXInstaller via vswhere at: $testPath"
-                  break
-                }
-              }
-            }
-          }
-          
-          if ($vsixInstaller) {
-            try {
-              Write-Host "Installing WiX VS2022 extension using: $vsixInstaller"
-              $process = Start-Process -FilePath $vsixInstaller -ArgumentList "/quiet", "/admin", $vsixPath -Wait -PassThru
-              Write-Host "VSIX installer exit code: $($process.ExitCode)"
-              if ($process.ExitCode -eq 0) {
-                Write-Host "✅ WiX VS2022 extension installation completed successfully"
-              } else {
-                Write-Warning "⚠️ WiX VS2022 extension installation may have failed (exit code: $($process.ExitCode))"
-              }
-            } catch {
-              Write-Warning "Failed to install WiX VS extension: $($_.Exception.Message)"
-            }
-          } else {
-            Write-Warning "VSIXInstaller not found in any Visual Studio installation."
-            Write-Host "=== Diagnostic Information ==="
-            Write-Host "Checked paths:"
-            foreach ($basePath in @("${env:ProgramFiles}\Microsoft Visual Studio\2022", "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022")) {
-              Write-Host "  Base: $basePath"
-              if (Test-Path $basePath) {
-                Get-ChildItem $basePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-                  $vsixPath = "$($_.FullName)\Common7\IDE\VSIXInstaller.exe"
-                  $exists = Test-Path $vsixPath
-                  Write-Host "    $($_.Name): VSIXInstaller exists = $exists"
-                  if ($exists) {
-                    Write-Host "      Path: $vsixPath"
-                  }
-                }
-              } else {
-                Write-Host "    (Directory does not exist)"
-              }
-            }
-            Write-Warning "WiX extension will not be installed, but command-line tools should still work for MSBuild."
-          }
+          Write-Host "✅ WiX 6 installation completed successfully"
 
       - name: Download and setup NuGet
         run: |
@@ -344,6 +214,45 @@ jobs:
           
           Write-Host "✅ All builds completed successfully (x86 and x64)"
 
+      - name: Build WiX 6 MSI Installers
+        run: |
+          Write-Host ">>> Building WiX 6 MSI Installers"
+          
+          # Build x86 MSI
+          Write-Host "Building x86 MSI installer..."
+          wix build -arch x86 -d Platform=x86 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x86\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
+          if ($LASTEXITCODE -ne 0) { 
+            Write-Error "x86 MSI build failed"
+            exit $LASTEXITCODE 
+          }
+          Write-Host "✅ x86 MSI completed successfully"
+          
+          # Build x64 MSI  
+          Write-Host "Building x64 MSI installer..."
+          wix build -arch x64 -d Platform=x64 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x64\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
+          if ($LASTEXITCODE -ne 0) { 
+            Write-Error "x64 MSI build failed"
+            exit $LASTEXITCODE 
+          }
+          Write-Host "✅ x64 MSI completed successfully"
+          
+          # Verify MSI files were created
+          if (Test-Path "DOFSetup\bin\x86\Release\DOFSetup.msi") {
+            $size = (Get-Item "DOFSetup\bin\x86\Release\DOFSetup.msi").Length
+            Write-Host "✅ DOFSetup x86 MSI created ($([math]::Round($size/1MB,2)) MB)"
+          } else {
+            Write-Error "DOFSetup x86 MSI was not created"
+            exit 1
+          }
+          
+          if (Test-Path "DOFSetup\bin\x64\Release\DOFSetup.msi") {
+            $size = (Get-Item "DOFSetup\bin\x64\Release\DOFSetup.msi").Length  
+            Write-Host "✅ DOFSetup x64 MSI created ($([math]::Round($size/1MB,2)) MB)"
+          } else {
+            Write-Error "DOFSetup x64 MSI was not created"
+            exit 1
+          }
+
       - name: Create ZIP release packages
         run: |
           # Create ZIP packages for both x86 and x64
@@ -413,8 +322,8 @@ jobs:
             $outputDir = "output-msi-$platform-$config"
             New-Item -ItemType Directory -Path $outputDir -Force
             
-            # Copy MSI installer
-            $msiPath = "DOFSetup\bin\$platform\$config\DOFSetup.msi"
+            # Copy WiX 6 MSI installer (updated for new WiX 6 installers)
+            $msiPath = "DOFSetup\bin\$platform\Release\DOFSetup.msi"
             if (Test-Path $msiPath) {
               $SHA7 = "${{ github.sha }}".Substring(0, 7)
               $DATE = Get-Date -Format "yyyyMMdd"
@@ -422,9 +331,8 @@ jobs:
               Copy-Item $msiPath "$outputDir\$msiName" -Force
               Write-Host "Created MSI package: $msiName"
             } else {
-              Write-Warning "MSI installer not found at: $msiPath (this may be expected for $platform)"
-              # Create an empty directory so the upload step doesn't fail
-              Write-Host "Note: MSI might only be created for x86 due to WiX limitations"
+              Write-Error "WiX 6 MSI installer not found at: $msiPath"
+              exit 1
             }
             
             Write-Host "✅ MSI package processing completed for $platform"

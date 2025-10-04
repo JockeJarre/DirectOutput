@@ -28,6 +28,17 @@ echo ^>^>^> Building Release^|x64
 msbuild DirectOutput.sln -t:Build -p:Configuration=Release;Platform=x64 -v:q -nologo
 if errorlevel 1 goto abort
 
+rem Build WiX 6 MSI installers
+echo.
+echo ^>^>^> Building WiX 6 x86 MSI installer
+wix build -arch x86 -d Platform=x86 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x86\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
+if errorlevel 1 goto abort
+
+echo.
+echo ^>^>^> Building WiX 6 x64 MSI installer
+wix build -arch x64 -d Platform=x64 -ext WixToolset.UI.wixext -o "DOFSetup\bin\x64\Release\DOFSetup.msi" DOFSetup\Product_WiX6.wxs
+if errorlevel 1 goto abort
+
 rem Build the release files
 echo.
 echo ^>^>^> Creating release packages in .\Builds
