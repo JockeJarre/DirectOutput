@@ -325,11 +325,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <PropertyGroup>
-    <!-- Post-build event disabled to avoid undefined path issues during build -->
-    <!--
-    <PostBuildEvent>call "$(DevEnvDir)..\Tools\VsDevCmd.bat"
-tlbexp "$(TargetPath)" /out:"$(TargetDir)$(TargetName).tlb"</PostBuildEvent>
-    -->
+    <!-- Generate COM Type Library (TLB) file after build -->
+    <PostBuildEvent>"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\TlbExp.exe" "$(TargetPath)" /out:"$(TargetDir)$(TargetName).tlb"</PostBuildEvent>
   </PropertyGroup>
   <Import Project="..\packages\Fody.6.7.0\build\Fody.targets" Condition="Exists('..\packages\Fody.6.7.0\build\Fody.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
