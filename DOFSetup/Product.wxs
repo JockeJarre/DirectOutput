@@ -48,7 +48,7 @@
     <!-- Enable basic Windows Installer UI with directory selection -->
     <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
     
-    <!-- Use standard WiX UI with directory selection -->
+    <!-- Use minimal WiX UI that includes all required icons -->
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
     <!-- WiX UI customization variables -->
@@ -57,8 +57,7 @@
     <WixVariable Id="WixUIBannerBmp" Value="Res\Banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="Res\DialogSide.bmp" />
     
-    <!-- Use standard WiX UI with built-in dialogs and icons -->
-    <UIRef Id="WixUI_InstallDir" />
+    <!-- WiX 6 auto-provides basic installation UI -->
     
     <Feature Id="ProductFeature" Title="DirectOutput" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
