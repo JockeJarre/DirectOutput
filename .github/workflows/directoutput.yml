@@ -198,66 +198,43 @@ jobs:
           Set-Content $projectFile $content
           Write-Host "✅ Updated project reference with HintPath"
 
-      - name: Build DirectOutput solution (x86 first, then x64)
+      - name: Build Release|x86 and Release|x64
+        shell: pwsh
         run: |
-          # Build x86 first (as required by README_BuildSetup.md)
-          Write-Host ">>> Building Release|x86 (required first for WiX dependencies)"
+          Write-Host "Setting up Visual Studio x86 environment..."
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
           
-          # Clean x86 first
-          Write-Host "Cleaning x86 build..."
-          msbuild DirectOutput.sln -t:Clean -p:Configuration=Release -p:Platform=x86 -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { 
-            Write-Error "x86 Clean failed"
-            exit $LASTEXITCODE 
-          }
-          
-          # Build x86 solution
-          Write-Host "Building x86 solution..."
-          msbuild DirectOutput.sln -t:Build -p:Configuration=Release -p:Platform=x86 -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { 
+          Write-Host ">>> Building Release|x86"
+          MSBuild.exe DirectOutput.sln /p:Configuration=Release /p:Platform=x86 /m:1
+          if ($LASTEXITCODE -ne 0) {
             Write-Error "x86 Solution build failed"
-            exit $LASTEXITCODE 
-          }
-          Write-Host "✅ x86 build completed successfully"
-          
-          # Now build x64 (can read from x86 files as needed)
-          Write-Host ">>> Building Release|x64 (can now use x86 dependencies)"
-          
-          # Clean x64
-          Write-Host "Cleaning x64 build..."
-          msbuild DirectOutput.sln -t:Clean -p:Configuration=Release -p:Platform=x64 -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { 
-            Write-Error "x64 Clean failed"
-            exit $LASTEXITCODE 
+            exit 1
           }
           
-          # Build x64 solution
-          Write-Host "Building x64 solution..."
-          msbuild DirectOutput.sln -t:Build -p:Configuration=Release -p:Platform=x64 -v:minimal -nologo
-          if ($LASTEXITCODE -ne 0) { 
+          Write-Host ">>> Building Release|x64"
+          MSBuild.exe DirectOutput.sln /p:Configuration=Release /p:Platform=x64 /m:1
+          if ($LASTEXITCODE -ne 0) {
             Write-Error "x64 Solution build failed"
-            exit $LASTEXITCODE 
+            exit 1
           }
-          Write-Host "✅ x64 build completed successfully"
-          
-          Write-Host "✅ All builds completed successfully (x86 and x64)"
-          
-          # Verify MSI files were created by MSBuild integration
-          Write-Host ">>> Verifying WiX MSI Installers (built via MSBuild)"
+
+      - name: Verify MSI files were created
+        run: |
+          Write-Host "Checking for MSI files..."
           
           if (Test-Path "DOFSetup\bin\x86\Release\DOFSetup.msi") {
-            $size = (Get-Item "DOFSetup\bin\x86\Release\DOFSetup.msi").Length
-            Write-Host "✅ DOFSetup x86 MSI created via MSBuild ($([math]::Round($size/1MB,2)) MB)"
+            $x86Size = (Get-Item "DOFSetup\bin\x86\Release\DOFSetup.msi").Length / 1MB
+            Write-Host "✅ x86 MSI created: $([math]::Round($x86Size, 2)) MB"
           } else {
-            Write-Error "DOFSetup x86 MSI was not created by MSBuild"
+            Write-Error "✗ x86 MSI not found"
             exit 1
           }
           
           if (Test-Path "DOFSetup\bin\x64\Release\DOFSetup.msi") {
-            $size = (Get-Item "DOFSetup\bin\x64\Release\DOFSetup.msi").Length  
-            Write-Host "✅ DOFSetup x64 MSI created via MSBuild ($([math]::Round($size/1MB,2)) MB)"
+            $x64Size = (Get-Item "DOFSetup\bin\x64\Release\DOFSetup.msi").Length / 1MB
+            Write-Host "✅ x64 MSI created: $([math]::Round($x64Size, 2)) MB"
           } else {
-            Write-Error "DOFSetup x64 MSI was not created by MSBuild"
+            Write-Error "✗ x64 MSI not found"
             exit 1
           }
 
