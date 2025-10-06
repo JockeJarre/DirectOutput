@@ -48,7 +48,7 @@
     <!-- Enable basic Windows Installer UI with directory selection -->
     <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
     
-    <!-- Custom UI with embedded bitmaps -->
+    <!-- Use standard WiX UI with directory selection -->
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     
     <!-- WiX UI customization variables -->
@@ -57,49 +57,8 @@
     <WixVariable Id="WixUIBannerBmp" Value="Res\Banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="Res\DialogSide.bmp" />
     
-    <!-- UI bitmap resources with standard WiX names -->
-    <Binary Id="WixUI_Bmp_Banner" SourceFile="Res\Banner.bmp" />
-    <Binary Id="WixUI_Bmp_Dialog" SourceFile="Res\DialogSide.bmp" />
-    
-    <UI>
-      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
-      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
-      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
-      
-      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
-      
-      <!-- Reference standard dialogs -->
-      <DialogRef Id="BrowseDlg" />
-      <DialogRef Id="DiskCostDlg" />
-      <DialogRef Id="ErrorDlg" />
-      <DialogRef Id="FatalError" />
-      <DialogRef Id="FilesInUse" />
-      <DialogRef Id="MsiRMFilesInUse" />
-      <DialogRef Id="PrepareDlg" />
-      <DialogRef Id="ProgressDlg" />
-      <DialogRef Id="ResumeDlg" />
-      <DialogRef Id="UserExit" />
-      
-      <!-- Welcome and Install Directory dialogs -->
-      <DialogRef Id="WelcomeDlg" />
-      <DialogRef Id="InstallDirDlg" />
-      <DialogRef Id="VerifyReadyDlg" />
-      
-      <!-- Fixed dialog flow that properly updates INSTALLFOLDER -->
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
-      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="2" />
-      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
-      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" Order="1" Condition="NOT Installed" />
-      <Publish Dialog="BrowseDlg" Control="OK" Event="SetTargetPath" Value="[_BrowseProperty]" Order="1" />
-      <!-- This is the key fix - properly set INSTALLFOLDER when browse dialog closes -->
-      <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="SetInstallFolder" Order="2" />
-    </UI>
-    
-    <!-- Custom action to properly update INSTALLFOLDER from browse selection -->
-    <CustomAction Id="SetInstallFolder" Property="INSTALLFOLDER" Value="[_BrowseProperty]" Execute="immediate" />
+    <!-- Use standard WiX UI with built-in dialogs and icons -->
+    <UIRef Id="WixUI_InstallDir" />
     
     <Feature Id="ProductFeature" Title="DirectOutput" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
