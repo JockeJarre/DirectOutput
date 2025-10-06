@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using WixToolset.Dtf.WindowsInstaller;
-using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Xml;
 using System.IO;

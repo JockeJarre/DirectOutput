@@ -1,9 +1,11 @@
-<Project>
+<Project Sdk="WixToolset.Sdk/6.0.2">
 
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <OutputName>DOFSetup</OutputName>
     <DefaultTargets>Build</DefaultTargets>
+    <TargetFramework>net48</TargetFramework>
+    <SuppressIces>ICE57;ICE61</SuppressIces>
   </PropertyGroup>
 
   <!-- Platform-specific configurations -->
@@ -38,52 +40,19 @@
     <ProjectReference Include="..\GlobalConfigEditor\GlobalConfigEditor.csproj" />
     <ProjectReference Include="..\LedControlFileTester\LedControlFileTester.csproj" />
     <ProjectReference Include="..\ProPinballSlave\ProPinballSlave.csproj" />
-    <!-- WiX 6 compatible custom actions -->
-    <ProjectReference Include="..\DOFSetupPBXFixup\DOFSetupPBXFixup_WiX6.csproj" />
-    <ProjectReference Include="..\DOFSetupB2SFixup\DOFSetupB2SFixup_WiX6.csproj" />
+    <!-- Use existing custom action projects -->
+    <ProjectReference Include="..\DOFSetupPBXFixup\DOFSetupPBXFixup.csproj" />
+    <ProjectReference Include="..\DOFSetupB2SFixup\DOFSetupB2SFixup.csproj" />
   </ItemGroup>
   
-  <!-- Custom build target using wix build directly -->
-  <Target Name="Build">
-    <MakeDir Directories="$(OutputPath)" />
-    <MakeDir Directories="$(IntermediateOutputPath)" />
-    
-    <Message Text="Building WiX installer for $(Platform) $(Configuration)..." Importance="high" />
-    <Message Text="WiX Architecture: $(WixArch)" Importance="high" />
-    <Message Text="Working Directory: $(MSBuildProjectDirectory)" Importance="high" />
-    <Message Text="Output Path: $(OutputPath)$(OutputName).msi" Importance="high" />
-    
-    <!-- Check if wix.exe is available -->
-    <Exec Command="wix --version" 
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
-    
-    <!-- List available WiX extensions -->
-    <Exec Command="wix extension list" 
-          ContinueOnError="true"
-          IgnoreExitCode="true" />
-    
-    <!-- Check for CI environment extension -->
-    <PropertyGroup>
-      <CIExtensionPath>C:\wix-extensions\WixToolset.UI.wixext.dll</CIExtensionPath>
-      <UseAbsolutePath Condition="Exists('$(CIExtensionPath)')">true</UseAbsolutePath>
-    </PropertyGroup>
-    
-    <Message Text="CI Extension Path Exists: $(UseAbsolutePath)" Importance="high" />
-    
-    <!-- Build with UI extension - use absolute path if in CI, otherwise extension name -->
-    <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext &quot;$(CIExtensionPath)&quot; -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="'$(UseAbsolutePath)' == 'true'" />
-    
-    <Exec Command="wix build -arch $(WixArch) -d Platform=$(Platform) -d Configuration=$(Configuration) -ext WixToolset.UI.wixext -o &quot;$(OutputPath)$(OutputName).msi&quot; Product.wxs" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          Condition="'$(UseAbsolutePath)' != 'true'" />
-  </Target>
-  
-  <!-- Clean target -->
-  <Target Name="Clean">
-    <RemoveDir Directories="$(OutputPath);$(IntermediateOutputPath)" />
-  </Target>
+  <!-- WiX source files -->
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+  </ItemGroup>
+
+  <!-- WiX Extensions -->
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
 
 </Project>

@@ -107,10 +107,10 @@
     
     <!-- Custom Actions for PinballX and B2S Server Integration -->
     <Binary Id="B2SFixupDLL" SourceFile="..\DOFSetupB2SFixup\bin\$(var.Platform)\$(var.Configuration)\DOFSetupB2SFixup.dll" />
-    <CustomAction Id="B2SFixup" Return="check" Execute="deferred" DllEntry="B2SFixup" Impersonate="yes" BinaryRef="B2SFixupDLL" />
+    <CustomAction Id="B2SFixup" Return="ignore" Execute="deferred" DllEntry="B2SFixup" Impersonate="yes" BinaryRef="B2SFixupDLL" />
     
     <Binary Id="PBXFixupDLL" SourceFile="..\DOFSetupPBXFixup\bin\$(var.Platform)\$(var.Configuration)\DOFSetupPBXFixup.dll" />
-    <CustomAction Id="PBXFixup" Return="check" Execute="deferred" DllEntry="PBXFixup" Impersonate="yes" BinaryRef="PBXFixupDLL" />
+    <CustomAction Id="PBXFixup" Return="ignore" Execute="deferred" DllEntry="PBXFixup" Impersonate="yes" BinaryRef="PBXFixupDLL" />
     
     <!-- Property setters for custom actions -->
     <CustomAction Id="SetB2SVars" Return="check" Property="B2SFixup" Value="INSTALLEDPATH=[DOFDIR];BINDIR=$(var.BinDirName);BITNESS=$(var.msiBitness)" />
