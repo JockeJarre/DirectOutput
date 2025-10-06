@@ -45,10 +45,7 @@
     <ProjectReference Include="..\DOFSetupB2SFixup\DOFSetupB2SFixup.csproj" />
   </ItemGroup>
   
-  <!-- WiX source files -->
-  <ItemGroup>
-    <Compile Include="Product.wxs" />
-  </ItemGroup>
+  <!-- WiX source files automatically discovered by WiX 6 SDK -->
 
   <!-- WiX Extensions -->
   <ItemGroup>
