@@ -1,11 +1,15 @@
 @echo off
 echo Building DirectOutput NSIS Installers...
 
-REM Check if NSIS is installed
-set "MAKENSIS=C:\Program Files (x86)\NSIS\makensis.exe"
-if not exist "%MAKENSIS%" (
-    set "MAKENSIS=C:\Program Files\NSIS\makensis.exe"
+REM Check if MAKENSIS is not set
+if "%MAKENSIS%"=="" (
+    REM Try to find makensis in default installation paths
+    set "MAKENSIS=C:\Program Files (x86)\NSIS\makensis.exe"
+    if not exist "%MAKENSIS%" (
+        set "MAKENSIS=C:\Program Files\NSIS\makensis.exe"
+    )
 )
+
 if not exist "%MAKENSIS%" (
     echo NSIS is not installed.
     echo Please install NSIS from https://nsis.sourceforge.io/
