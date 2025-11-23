@@ -361,65 +361,48 @@ namespace DirectOutput.LedControl.Loader
 
                 string Trigger = S.Substring(0, TriggerEndPos).ToUpper().Trim();
 
-
-
                 //Get output state and table element (if applicable)
                 bool ParseOK = true;
-                switch (Trigger)
+                string[] ATE = Trigger.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(Tr => Tr.Trim()).ToArray();
+                foreach (string E in ATE)
                 {
-                    case "ON":
-                    case "1":
-                        OutputControl = OutputControlEnum.FixedOn;
-                        break;
-                    case "OFF":
-                    case "0":
+                    if (E == "0" || E == "OFF")
+                    {
                         OutputControl = OutputControlEnum.FixedOff;
-                        break;
-                    case "B":
-                    case "BLINK":
+                    }
+                    else if (E == "1" || E == "ON")
+                    {
+                        OutputControl = OutputControlEnum.FixedOn;
+                        Blink = 0;
+                        BlinkIntervalMs = 0;
+                    }
+                    else if (E == "B" || E == "BLINK")
+                    {
                         OutputControl = OutputControlEnum.FixedOn;
                         Blink = -1;
                         BlinkIntervalMs = 1000;
+                    }
+                    else if (E[0] == (char)TableElementTypeEnum.NamedElement && E.Substring(1).All(C => char.IsLetterOrDigit(C) || C == '_'))
+                    {
+                        //Named element
+                    }
+                    else if (Enum.IsDefined(typeof(TableElementTypeEnum), (int)E[0]) && E.Substring(1).IsInteger())
+                    {
+                        //Normal table element
+                    }
+                    else
+                    {
+                        Log.Error("Failed: " + E);
+                        ParseOK = false;
                         break;
-                    default:
-                        string[] ATE = Trigger.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Select(Tr => Tr.Trim()).ToArray();
-                        foreach (string E in ATE)
-                        {
-                            if (E.Length > 1)
-                            {
-                                if (E[0] == (char)TableElementTypeEnum.NamedElement && E.Substring(1).All(C => char.IsLetterOrDigit(C) || C == '_'))
-                                {
-                                    //Named element
-                                }
-                                else if (Enum.IsDefined(typeof(TableElementTypeEnum), (int)E[0]) && E.Substring(1).IsInteger())
-                                {
-                                    //Normal table element
-                                }
-                                else
-                                {
-                                    Log.Error("Failed: " + E);
-                                    ParseOK = false;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                ParseOK = false;
-                                break;
-                            }
-
-
-                        }
-                        if (ParseOK)
-                        {
-                            OutputControl = OutputControlEnum.Controlled;
-                            TableElement = Trigger;
-                        }
-
-
-
-                        break;
+                    }
                 }
+                if (ParseOK && OutputControl != OutputControlEnum.FixedOn && OutputControl != OutputControlEnum.FixedOff)
+                {
+                    OutputControl = OutputControlEnum.Controlled;
+                    TableElement = Trigger;
+                }
+
                 if (!ParseOK)
                 {
                     Log.Warning("Cant parse the trigger part {0} of the ledcontrol table config setting {1}.".Build(Trigger, SettingData));
