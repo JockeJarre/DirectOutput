@@ -8,6 +8,9 @@ using System.Xml;
 using Microsoft.Win32;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+#if WIX_CUSTOM_ACTION
+using Microsoft.Deployment.WindowsInstaller;
+#endif
 
 namespace DOFSetupPBXFixup
 {
@@ -15,12 +18,37 @@ namespace DOFSetupPBXFixup
     [Guid("F4F2DA2E-9F7E-487A-8F29-0C7D6AA18D6A")]
     public class CustomActions
     {
+#if WIX_CUSTOM_ACTION
+        [CustomAction]
+        public static ActionResult PBXFixup(Session session)
+        {
+            var dofPath = session.CustomActionData["INSTALLEDPATH"];
+            var binDir = session.CustomActionData["BINDIR"];
+            var bitness = session.CustomActionData["BITNESS"];
+
+            var errors = Execute(dofPath, binDir, bitness, message => session.Log("[PBXFixup] " + message));
+
+            if (errors.Count > 0)
+            {
+                session.Message(InstallMessage.Error, new Record { FormatString = string.Join("\r\n\r\n", errors) });
+            }
+
+            return ActionResult.Success;
+        }
+#endif
+
         public static string Run(string dofPath, string binDir, string bitness)
         {
-            var errors = new List<string>();
             var log = new StringBuilder();
+            var errors = Execute(dofPath, binDir, bitness, message => log.AppendLine($"[PBXFixup] {message}"));
+            return Finish(log, dofPath, errors);
+        }
 
-            void Log(string message) => log.AppendLine($"[PBXFixup] {message}");
+        private static List<string> Execute(string dofPath, string binDir, string bitness, Action<string> log)
+        {
+            var errors = new List<string>();
+
+            void Log(string message) => log?.Invoke(message);
 
             Log("Begin PinballX -> DOF connection setup");
 
@@ -32,7 +60,7 @@ namespace DOFSetupPBXFixup
                 errors.Add("Bitness not supplied.");
 
             if (errors.Count > 0)
-                return Finish(log, dofPath, errors);
+                return errors;
 
             Log("Installation path: " + dofPath + ", binary dir: " + binDir + ", bitness=" + bitness);
 
@@ -265,7 +293,10 @@ namespace DOFSetupPBXFixup
                 Log("No PinballX installer entry found in registry; skipping PinballX setup");
             }
 
-            return Finish(log, dofPath, errors);
+            if (errors.Count == 0)
+                Log("Fixup completed successfully.");
+
+            return errors;
         }
 
         private static string Finish(StringBuilder log, string dofPath, List<string> errors)

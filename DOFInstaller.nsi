@@ -158,7 +158,7 @@ Section "Main Installation" SEC01
   DetailPrint "Running integration fixups via FixupRunner..."
   ExecWait '"$INSTDIR\${BINDIR}\FixupRunner.exe" "$INSTDIR" "${BINDIR}" "${ARCH}"' $R0
   ${If} $R0 != 0
-    MessageBox MB_OK|MB_ICONEXCLAMATION "DirectOutput fixups returned exit code $R0. Review log files in $INSTDIR for details."
+    MessageBox MB_OK|MB_ICONEXCLAMATION "DirectOutput installation failed, returned exit code $R0.$\nReview log files in $INSTDIR for details on what went wrong.$\nThen re-run the installation after correcting the problems reported."
   ${EndIf}
 
   Delete "$INSTDIR\${BINDIR}\FixupRunner.exe"

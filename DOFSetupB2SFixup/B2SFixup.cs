@@ -6,6 +6,9 @@ using System.IO;
 using Microsoft.Win32;
 using IWshRuntimeLibrary;
 using System.Runtime.InteropServices;
+#if WIX_CUSTOM_ACTION
+using Microsoft.Deployment.WindowsInstaller;
+#endif
 
 namespace DOFSetupB2SFixup
 {
@@ -13,16 +16,41 @@ namespace DOFSetupB2SFixup
     [Guid("BD1C6E2C-7B46-4EC3-BAF0-1E8C6A4F8E24")]
     public class CustomActions
     {
+#if WIX_CUSTOM_ACTION
+        [CustomAction]
+        public static ActionResult B2SFixup(Session session)
+        {
+            var dofPath = session.CustomActionData["INSTALLEDPATH"];
+            var binDir = session.CustomActionData["BINDIR"];
+            var bitness = session.CustomActionData["BITNESS"];
+
+            var errors = Execute(dofPath, binDir, bitness, message => session.Log("[B2SFixup] " + message));
+
+            if (errors.Count > 0)
+            {
+                session.Message(InstallMessage.Error, new Record { FormatString = string.Join("\r\n\r\n", errors) });
+            }
+
+            return ActionResult.Success;
+        }
+#endif
+
         /// <summary>
         /// Performs the B2S/DOF integration steps outside of WiX.
         /// Returns an error string (multiple messages separated by blank lines) or null on success.
         /// </summary>
         public static string Run(string dofPath, string binDir, string bitness)
         {
-            var errors = new List<string>();
             var log = new StringBuilder();
+            var errors = Execute(dofPath, binDir, bitness, message => log.AppendLine($"[B2SFixup] {message}"));
+            return Finish(log, dofPath, errors);
+        }
 
-            void Log(string message) => log.AppendLine($"[B2SFixup] {message}");
+        private static List<string> Execute(string dofPath, string binDir, string bitness, Action<string> log)
+        {
+            var errors = new List<string>();
+
+            void Log(string message) => log?.Invoke(message);
 
             Log("Begin B2S -> DOF connection setup");
 
@@ -34,7 +62,7 @@ namespace DOFSetupB2SFixup
                 errors.Add("Bitness not supplied.");
 
             if (errors.Count > 0)
-                return Finish(log, dofPath, errors);
+                return errors;
 
             Log($"Installation path: {dofPath}, binary dir: {binDir}, bitness={bitness}");
 
@@ -239,11 +267,10 @@ namespace DOFSetupB2SFixup
                 }
             }
 
-            // if there are any errors, show them
             if (errors.Count == 0)
                 Log("Fixup completed successfully.");
 
-            return Finish(log, dofPath, errors);
+            return errors;
         }
 
         private static string Finish(StringBuilder log, string dofPath, List<string> errors)
